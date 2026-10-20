@@ -21,7 +21,7 @@ Open [HARDPLAY Web](https://hardplay-offline-stage.hardmute.chatgpt.site/) and c
 - **Chrome / Edge:** use the browser installation prompt or its app-install control. HARDPLAY offers **Install web app** when the browser makes the prompt available.
 - Open the installed app online, add audio, and wait for **App saved** and **Saved offline** on every track. Request **Keep offline storage** in the offline storage panel and test the complete set without a connection.
 
-The hosted web app and repository are private and require access. Installing the web app does not transfer the native app’s library. Browser storage belongs to the browser profile; clearing site data removes cached tracks. Downloads must complete before offline use. See [web documentation](web/README.md) for storage and cloud limitations.
+The repository and Mac release downloads are public. The hosted web app currently requires separate access. Installing the web app does not transfer the native app’s library. Browser storage belongs to the browser profile; clearing site data removes cached tracks. Downloads must complete before offline use. See [web documentation](web/README.md) for storage and cloud limitations.
 
 ## Main controls
 
@@ -80,7 +80,7 @@ See [validation notes](VALIDATION.md), [Russian user guide](docs/USER_GUIDE.ru.m
 - `docs/` — usage, installation and release notes.
 - `.github/workflows/` — build verification.
 
-Personal playlists, audio, generated apps and local credentials are excluded from source publication. No open-source license has been assigned; the repository is private.
+Personal playlists, audio, generated apps and local credentials are excluded from source publication. The repository is public; no open-source license has been assigned.
 
 ## 0.14.0 identity
 
