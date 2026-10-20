@@ -1,10 +1,12 @@
 # HARDPLAY
 
+![Hard Play logo](assets/branding/hard-play-stacked-v1.png)
+
 A stage audio player for macOS, with an installable offline web edition. Blue and white translucent controls, two live decks, an independent playlist window, and quick access while working in other apps.
 
 ## Download and install on Mac
 
-Download the latest **DMG or ZIP** from [Releases](../../releases/latest). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
+Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/latest). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
 - **macOS 14 Sonoma or newer.** The downloadable 0.13.0 build is for **Apple Silicon (arm64)**. Intel Macs can build the source locally; this release is not a universal binary.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.

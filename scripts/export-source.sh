@@ -4,7 +4,7 @@ set -euo pipefail
 cd "${0:A:h:h}"
 target="$PWD/build/github-project"
 mkdir -p "$target"
-for entry in Package.swift README.md VALIDATION.md .gitignore Sources scripts docs .github; do
+for entry in Package.swift README.md VALIDATION.md .gitignore Sources scripts docs assets .github; do
     rsync -a "$entry" "$target/"
 done
 mkdir -p "$target/web"

@@ -143,3 +143,7 @@ Web: 21 автоматическая проверка и валидный Worker
 Native: resizable main window, width-dependent two-column layout at 840 pt, wide/standard button; explicit playlist placement buttons. Web: persistent wide layout, two-column breakpoint at 850 px, placement controls with pressed state, reattachment returns the original queue DOM. Install on Mac panel delegates installation to the browser and documents Add to Dock; no install is silently performed. Native bundle now displays its Dock icon.
 
 Distribution packages are ad-hoc signed, not notarized. The local build targets Apple Silicon. Clean-Mac installation and real browser installation prompts are not implied by local build tests.
+
+GUI verification for 0.13.0: native wide layout and detached playlist were opened in an isolated QA bundle; web width 1200 showed playback left / queue right and placement round-trip returned the same queue. After stopping the preview server, reloading restored both saved silent WAV tracks and Play advanced from the local cache. This verifies server-unavailable playback, not an installed Safari/Chrome app on a clean Mac.
+
+Distribution: local self/queue/button-mode/mapping/playlist checks passed; code signature verification passed; DMG checksum verified. GitHub release assets uploaded. GitHub Actions returned startup_failure before any jobs ran; no passing CI result is claimed.
