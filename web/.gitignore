@@ -1,0 +1,4 @@
+dist/
+.fixtures/
+*.tar.gz
+.openai/local/

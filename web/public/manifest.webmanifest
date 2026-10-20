@@ -1,0 +1,34 @@
+{
+  "name": "HARDPLAY",
+  "short_name": "HARDPLAY",
+  "description": "Stage audio player with offline cloud downloads",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#454b55",
+  "theme_color": "#454b55",
+  "icons": [
+    {
+      "src": "./icon.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "id": "./",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "categories": [
+    "music",
+    "utilities"
+  ],
+  "lang": "en"
+}

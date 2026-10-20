@@ -1,0 +1,34 @@
+name: Verify HARDPLAY
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/build.mjs
+        working-directory: web
+      - run: node --test tests/*.test.mjs
+        working-directory: web
+      - run: node scripts/validate-artifact.mjs
+        working-directory: web
+  mac:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: zsh scripts/release.sh
+      - run: |
+          build/HARDPLAY.app/Contents/MacOS/HARDPLAY --button-mode-test
+          build/HARDPLAY.app/Contents/MacOS/HARDPLAY --mapping-test
+          build/HARDPLAY.app/Contents/MacOS/HARDPLAY --playlist-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HARDPLAY-macOS
+          path: build/release/*

@@ -1,0 +1,16 @@
+import {readFile,readdir,mkdir,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const root=new URL('../',import.meta.url),pub=new URL('public/',root),files=(await readdir(pub)).sort();
+for(const name of files.filter(n=>/\.m?js$/.test(n)))execFileSync(process.execPath,['--check',fileURLToPath(new URL(name,pub))],{stdio:'inherit'});
+const entries=await Promise.all(files.map(async name=>[name,await readFile(new URL(name,pub))]));
+const hash=createHash('sha256');for(const [name,data]of entries)hash.update(name).update(data);const version=hash.digest('hex').slice(0,16);
+const types={html:'text/html; charset=utf-8',css:'text/css; charset=utf-8',mjs:'application/javascript; charset=utf-8',js:'application/javascript; charset=utf-8',png:'image/png',webmanifest:'application/manifest+json'};
+const assets=Object.fromEntries(entries.map(([name,data])=>['/'+name,{body:(name==='sw.js'?Buffer.from(data.toString().replaceAll('__BUILD_HASH__',version)):data).toString('base64'),type:types[name.split('.').pop()]||'application/octet-stream'}]));
+const providers=(await readFile(new URL('public/providers.mjs',root),'utf8')).replaceAll('export function','function');
+const worker=(await readFile(new URL('worker/index.mjs',root),'utf8')).replace(/^import .*;\n/,'');
+const output=`${providers}\n${worker}\nconst ASSETS=${JSON.stringify(assets)};\nexport default {async fetch(request){const url=new URL(request.url);if(url.pathname==='/api/cloud')return cloudProxy(request);if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405});const path=url.pathname==='/'?'/index.html':url.pathname;const asset=ASSETS[path];if(!asset)return new Response('Not found',{status:404});const headers={'content-type':asset.type,'cache-control':'no-cache','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':\"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; worker-src 'self'; frame-ancestors 'self'\"};if(path==='/sw.js')headers['service-worker-allowed']='/';return new Response(request.method==='HEAD'?null:Uint8Array.from(atob(asset.body),c=>c.charCodeAt(0)),{headers})}};\n`;
+await mkdir(new URL('dist/server/',root),{recursive:true});await mkdir(new URL('dist/.openai/',root),{recursive:true});
+await writeFile(new URL('dist/server/index.js',root),output);await writeFile(new URL('dist/.openai/hosting.json',root),await readFile(new URL('.openai/hosting.json',root)));
+console.log(`Built HARDPLAY ${version}: ${files.length} assets, ${(Buffer.byteLength(output)/1024).toFixed(0)} KB Worker`);

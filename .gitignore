@@ -1,0 +1,11 @@
+.build/
+build/
+.DS_Store
+Playlists/
+*.hardplay
+*.hardplay.json
+.env
+.env.*
+node_modules/
+*.dmg
+*.zip
