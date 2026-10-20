@@ -15,10 +15,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleExecutable</key><string>HARDPLAY</string>
 <key>CFBundleIdentifier</key><string>local.hardplay.player</string>
-<key>CFBundleName</key><string>HARDPLAY</string>
-<key>CFBundleDisplayName</key><string>HARDPLAY</string>
-<key>CFBundleVersion</key><string>18</string>
-<key>CFBundleShortVersionString</key><string>0.13.0</string>
+<key>CFBundleName</key><string>Hard Play</string>
+<key>CFBundleDisplayName</key><string>Hard Play</string>
+<key>CFBundleVersion</key><string>19</string>
+<key>CFBundleShortVersionString</key><string>0.14.0</string>
 <key>CFBundleDevelopmentRegion</key><string>en</string>
 <key>CFBundleLocalizations</key><array><string>en</string></array>
 <key>UTExportedTypeDeclarations</key><array><dict><key>UTTypeIdentifier</key><string>local.hardplay.playlist</string><key>UTTypeDescription</key><string>HARDPLAY Playlist</string><key>UTTypeConformsTo</key><array><string>public.json</string></array><key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>hardplay</string></array><key>public.mime-type</key><string>application/vnd.hardplay.playlist+json</string></dict></dict></array>
@@ -29,7 +29,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDocumentTypes</key><array><dict><key>CFBundleTypeName</key><string>HARDPLAY Playlist</string><key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Owner</string><key>LSItemContentTypes</key><array><string>local.hardplay.playlist</string></array></dict><dict><key>CFBundleTypeName</key><string>Audio</string><key>CFBundleTypeRole</key><string>Viewer</string><key>LSHandlerRank</key><string>Alternate</string><key>LSItemContentTypes</key><array><string>public.audio</string></array></dict></array>
 </dict></plist>
 PLIST
-"$APP/Contents/MacOS/HARDPLAY" --make-icon "$PWD/build/icon.png"
+cp assets/branding/hard-play-front-icon-v1.png "$APP/Contents/Resources/HardPlayButton.png"
+cp assets/branding/hard-play-red-keycap-v1.png "$APP/Contents/Resources/RedKeycap.png"
+sips -z 1024 1024 assets/branding/hard-play-front-icon-v1.png --out "$PWD/build/icon.png" >/dev/null
 mkdir -p "$PWD/build/AppIcon.iconset"
 for size in 16 32 128 256 512; do
     sips -z "$size" "$size" "$PWD/build/icon.png" --out "$PWD/build/AppIcon.iconset/icon_${size}x${size}.png" >/dev/null

@@ -1,6 +1,6 @@
 {
-  "name": "HARDPLAY",
-  "short_name": "HARDPLAY",
+  "name": "Hard Play",
+  "short_name": "Hard Play",
   "description": "Stage audio player with offline cloud downloads",
   "start_url": "./",
   "scope": "./",

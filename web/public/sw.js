@@ -1,5 +1,5 @@
 const CACHE='hardplay-shell-__BUILD_HASH__';
-const ASSETS=['./','./index.html','./style.css','./app.mjs','./engine.mjs','./core.mjs','./storage.mjs','./providers.mjs','./manifest.webmanifest','./icon.png','./icon-512.png'];
+const ASSETS=['./','./index.html','./style.css','./app.mjs','./engine.mjs','./core.mjs','./storage.mjs','./providers.mjs','./manifest.webmanifest','./icon.png','./icon-512.png','./hard-play-button.png','./red-keycap.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)))});
 self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const key of await caches.keys())if(key.startsWith('hardplay-shell-')&&key!==CACHE)await caches.delete(key);await self.clients.claim()})()));
 self.addEventListener('fetch',event=>{const url=new URL(event.request.url);if(event.request.method!=='GET'||url.origin!==self.location.origin||url.pathname.includes('/api/'))return;event.respondWith((async()=>{const cache=await caches.open(CACHE);const hit=await cache.match(event.request,{ignoreSearch:true});if(hit)return hit;try{return await fetch(event.request)}catch(error){if(event.request.mode==='navigate'){const shell=await cache.match(new URL('./',self.location));if(shell)return shell}throw error}})())});

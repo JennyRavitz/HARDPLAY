@@ -61,3 +61,5 @@ Drop files onto either the main player or the detached playlist window. Both add
 **Wide Layout** in the header arranges playback left and playlist right when the browser is at least 850 px wide. The preference is saved on this device. Narrow windows keep a vertical layout; the compact player stays compact. **In Player / Separate Window** switches the playlist placement without copying the queue or starting audio.
 
 **Install on Mac** in the footer opens installation instructions and offers the browser’s install prompt when available. Safari on macOS 14+ supports File → Add to Dock. Open the installed app online once and cache every audio file before relying on offline use. The standalone window and icon are supplied by the browser; installation does not grant native menu bar or global keyboard access.
+
+The red Solo-style transport shows a centered Play triangle or Pause bars. The Hard / Play wordmark remains on the app icon and header. Both artwork files are included in the service worker shell cache.

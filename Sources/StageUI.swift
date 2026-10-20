@@ -435,8 +435,11 @@ struct PlayerView: View {
     }
     private var header: some View {
         HStack(spacing:8) {
-            Image(systemName:"waveform").foregroundStyle(accent)
-            Text("HARDPLAY").font(.system(size:11,weight:.bold,design:.rounded)).tracking(2)
+            HStack(spacing:4) {
+                HardPlayArtwork().frame(width:30,height:30)
+                VStack(alignment:.leading,spacing:-2) { Text("Hard"); Text("Play") }
+                    .font(.system(size:12,weight:.heavy,design:.rounded))
+            }.accessibilityElement(children:.ignore).accessibilityLabel("Hard Play")
             Spacer()
             if !compact {
                 Button { AppDelegate.shared.toggleWideLayout() } label: { Image(systemName:"arrow.left.and.right").frame(width:32,height:32) }
@@ -460,7 +463,7 @@ struct PlayerView: View {
     private var transport: some View {
         HStack(spacing:compact ? 20 : 10) {
             Button { player.previous() } label: { Image(systemName:"backward.end.fill").frame(width:42,height:42) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Previous Track").disabled(setup.selectionBlocked).stageHint("Previous track").mapAction("previous")
-            Button { player.toggle() } label: { Image(systemName:player.playing ? "pause.fill":"play.fill").font(.system(size:24,weight:.semibold)).frame(width:58,height:58) }.buttonStyle(PlayerControlStyle(outline:.circle,primary:true)).accessibilityLabel(player.playing ? "Pause":"Play").disabled(setup.playbackBlocked).stageHint(player.playing ? "Pause playback" : "Play · ⌥⌘ Space").mapAction("playPause")
+            Button { player.toggle() } label: { HardPlayTransport(playing:player.playing,compact:compact) }.buttonStyle(HardPlayPressStyle()).accessibilityLabel(player.playing ? "Pause":"Play").disabled(setup.playbackBlocked).stageHint(player.playing ? "Pause playback" : "Play · ⌥⌘ Space").mapAction("playPause")
             Button { player.next() } label: { Image(systemName:"forward.end.fill").frame(width:42,height:42) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Next Track").disabled(setup.selectionBlocked).stageHint("Next track").mapAction("next")
             if !compact { Spacer(minLength:0); restartButtons }
         }.disabled(player.current == nil)

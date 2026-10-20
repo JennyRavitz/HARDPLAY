@@ -24,27 +24,31 @@ enum MenuBarBadge: String {
         switch self { case .empty: return "Ready"; case .paused: return "Paused"; case .playing: return "Playing"; case .crossfade: return "Crossfade"; case .error: return "Playback error" }
     }
     func image() -> NSImage {
-        let image = NSImage(size:NSSize(width:30,height:18), flipped:false) { _ in
-            NSColor.black.setFill()
-            for (index,height) in [6.0,11.0,16.0,11.0,6.0].enumerated() {
-                NSBezierPath(roundedRect:NSRect(x:Double(index)*3,y:(18-height)/2,width:1.8,height:height),xRadius:0.9,yRadius:0.9).fill()
-            }
+        let image = NSImage(size:NSSize(width:38,height:22),flipped:false) { _ in
+            let face=NSBezierPath(roundedRect:NSRect(x:1,y:1,width:23,height:20),xRadius:4,yRadius:4)
+            NSGradient(starting:NSColor(calibratedRed:0.92,green:0.13,blue:0.12,alpha:1),ending:NSColor(calibratedRed:0.38,green:0.025,blue:0.04,alpha:1))?.draw(in:face,angle:-90)
+            NSColor.white.withAlphaComponent(0.45).setStroke();face.lineWidth=0.7;face.stroke()
+            let paragraph=NSMutableParagraphStyle();paragraph.alignment = .center
+            let attributes:[NSAttributedString.Key:Any] = [.font:NSFont.systemFont(ofSize:7.5,weight:.heavy),.foregroundColor:NSColor.white,.paragraphStyle:paragraph]
+            ("Hard" as NSString).draw(in:NSRect(x:1,y:10,width:23,height:10),withAttributes:attributes)
+            ("Play" as NSString).draw(in:NSRect(x:1,y:2,width:23,height:10),withAttributes:attributes)
+            NSColor.labelColor.setFill()
             switch self {
             case .playing:
-                let path = NSBezierPath(); path.move(to:NSPoint(x:21,y:4)); path.line(to:NSPoint(x:28,y:9)); path.line(to:NSPoint(x:21,y:14)); path.close(); path.fill()
+                let path=NSBezierPath();path.move(to:NSPoint(x:29,y:6));path.line(to:NSPoint(x:36,y:11));path.line(to:NSPoint(x:29,y:16));path.close();path.fill()
             case .paused:
-                for x in [20.0,25.0] { NSBezierPath(roundedRect:NSRect(x:x,y:4,width:2.4,height:10),xRadius:0.7,yRadius:0.7).fill() }
+                for x in [28.0,33.0] { NSBezierPath(roundedRect:NSRect(x:x,y:6,width:2.5,height:10),xRadius:0.6,yRadius:0.6).fill() }
             case .crossfade:
-                NSImage(systemSymbolName:"arrow.left.arrow.right",accessibilityDescription:nil)?.draw(in:NSRect(x:17,y:2,width:13,height:14))
+                NSImage(systemSymbolName:"arrow.left.arrow.right",accessibilityDescription:nil)?.withSymbolConfiguration(.init(paletteColors:[.labelColor]))?.draw(in:NSRect(x:26,y:4,width:12,height:14))
             case .error:
-                ("!" as NSString).draw(at:NSPoint(x:21,y:1),withAttributes:[.font:NSFont.systemFont(ofSize:14,weight:.bold),.foregroundColor:NSColor.black])
+                ("!" as NSString).draw(at:NSPoint(x:29,y:2),withAttributes:[.font:NSFont.systemFont(ofSize:15,weight:.bold),.foregroundColor:NSColor.labelColor])
             case .empty:
-                NSColor.black.setStroke(); let path=NSBezierPath(ovalIn:NSRect(x:21,y:6,width:6,height:6)); path.lineWidth=1.5; path.stroke()
+                NSColor.secondaryLabelColor.setFill();NSBezierPath(ovalIn:NSRect(x:30,y:9,width:4,height:4)).fill()
             }
             return true
         }
-        image.isTemplate = true
-        image.accessibilityDescription = "HARDPLAY — \(title)"
+        image.isTemplate = false
+        image.accessibilityDescription = "Hard Play — \(title)"
         return image
     }
 }

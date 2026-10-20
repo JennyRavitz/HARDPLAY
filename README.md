@@ -1,14 +1,14 @@
 # HARDPLAY
 
-![Hard Play logo](assets/branding/hard-play-stacked-v1.png)
+<img src="assets/branding/hard-play-front-icon-v1.png" width="180" alt="Hard Play red Solo-button app icon">
 
-A stage audio player for macOS, with an installable offline web edition. Blue and white translucent controls, two live decks, an independent playlist window, and quick access while working in other apps.
+Hard Play is a stage audio player for macOS, with an installable offline web edition. Blue and white translucent controls, two live decks, an independent playlist window, and quick access while working in other apps.
 
 ## Download and install on Mac
 
 Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/latest). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
-- **macOS 14 Sonoma or newer.** The downloadable 0.13.0 build is for **Apple Silicon (arm64)**. Intel Macs can build the source locally; this release is not a universal binary.
+- **macOS 14 Sonoma or newer.** The downloadable 0.14.0 build is for **Apple Silicon (arm64)**. Intel Macs can build the source locally; this release is not a universal binary.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.
 - Native playback of local audio needs no network connection. Cloud-only files must first be downloaded to the Mac.
 - The app displays an ordinary Dock icon and also provides a menu bar player.
@@ -81,3 +81,7 @@ See [validation notes](VALIDATION.md), [Russian user guide](docs/USER_GUIDE.ru.m
 - `.github/workflows/` — build verification.
 
 Personal playlists, audio, generated apps and local credentials are excluded from source publication. No open-source license has been assigned; the repository is private.
+
+## 0.14.0 identity
+
+Front-facing red Solo-key app icon with Hard / Play on two lines. The main transport uses a red physical key with a large white Play triangle or Pause bars. The native menu bar uses a simplified red Hard / Play key and a separate playback-state badge. The remaining interface keeps its blue/white stage palette. The generated PNG masters and prompts live in `assets/branding/`.

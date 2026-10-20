@@ -676,9 +676,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.setActivationPolicy(.regular)
         _ = Player.shared
         makeMenu()
-        status = NSStatusBar.system.statusItem(withLength: 38)
+        status = NSStatusBar.system.statusItem(withLength: 46)
         if let button = status.button {
-            button.image = NSImage(systemSymbolName: "waveform.circle.fill", accessibilityDescription: "HARDPLAY")
+            button.image = MenuBarBadge.empty.image()
             button.target = self; button.action = #selector(statusClick(_:)); button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         popover = NSPopover(); popover.behavior = .transient
@@ -707,13 +707,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(withTitle: "Save Playlist",action:#selector(savePlaylist),keyEquivalent:"s")
         let saveAs = appMenu.addItem(withTitle:"Save Playlist As…",action:#selector(savePlaylistAs),keyEquivalent:"s"); saveAs.keyEquivalentModifierMask = [.command,.shift]
         let open = appMenu.addItem(withTitle:"Open Playlist…",action:#selector(openPlaylist),keyEquivalent:"o"); open.keyEquivalentModifierMask = [.command,.shift]
-        appMenu.addItem(withTitle: "Show HARDPLAY", action: #selector(showMain), keyEquivalent: "1")
+        appMenu.addItem(withTitle: "Show Hard Play", action: #selector(showMain), keyEquivalent: "1")
         appMenu.addItem(withTitle: "Mini Player", action: #selector(toggleMini), keyEquivalent: "2")
         appMenu.addItem(withTitle:"Keyboard / MIDI…",action:#selector(showMappings),keyEquivalent:"m").keyEquivalentModifierMask = [.command,.shift]
         appMenu.addItem(withTitle:"Minimize Window",action:#selector(minimizeFrontWindow),keyEquivalent:"m")
         appMenu.addItem(withTitle: "Lock Controls", action: #selector(lockControls), keyEquivalent: "l")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit HARDPLAY", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit Hard Play", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         NSApp.mainMenu = menu
     }
     func makeWindows() {
@@ -721,7 +721,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mainWindow.contentMinSize = NSSize(width:520,height:620)
         mainWindow.isOpaque = false; mainWindow.backgroundColor = .clear
         mainWindow.appearance = NSAppearance(named: .darkAqua)
-        mainWindow.title = "HARDPLAY"; mainWindow.titlebarAppearsTransparent = true
+        mainWindow.title = "Hard Play"; mainWindow.titlebarAppearsTransparent = true
         mainWindow.titleVisibility = .hidden; mainWindow.isMovableByWindowBackground = true
         mainWindow.isReleasedWhenClosed = false; mainWindow.delegate = self
         mainWindow.contentView = NSHostingView(rootView: PlayerView().padding(.top, 20).background(GlassBackdrop().overlay(Color(red: 0.035, green: 0.085, blue: 0.16).opacity(0.48))).preferredColorScheme(.dark))
@@ -729,7 +729,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         miniWindow = FloatingPanel(contentRect: NSRect(x: 100, y: 100, width: 380, height: 540), styleMask: [.titled, .closable, .miniaturizable, .nonactivatingPanel, .fullSizeContentView], backing: .buffered, defer: false)
         miniWindow.isOpaque = false; miniWindow.backgroundColor = .clear
         miniWindow.appearance = NSAppearance(named: .darkAqua)
-        miniWindow.title = "HARDPLAY Mini"; miniWindow.titleVisibility = .hidden; miniWindow.titlebarAppearsTransparent = true
+        miniWindow.title = "Hard Play Mini"; miniWindow.titleVisibility = .hidden; miniWindow.titlebarAppearsTransparent = true
         miniWindow.standardWindowButton(.closeButton)?.isHidden = true
         miniWindow.isMovableByWindowBackground = true; miniWindow.level = .floating
         miniWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -737,7 +737,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         miniWindow.contentView = NSHostingView(rootView: PlayerView(compact: true).padding(.top, 8).background(GlassBackdrop().overlay(Color(red: 0.035, green: 0.085, blue: 0.16).opacity(0.48))))
         miniWindow.setFrameAutosaveName("HARDPLAY.stage.minimal.mini")
         playlistWindow = FloatingPanel(contentRect:NSRect(x:160,y:160,width:440,height:480),styleMask:[.titled,.closable,.miniaturizable,.resizable,.nonactivatingPanel,.fullSizeContentView],backing:.buffered,defer:false)
-        playlistWindow.title = "HARDPLAY Playlist"; playlistWindow.titlebarAppearsTransparent = true
+        playlistWindow.title = "Hard Play Playlist"; playlistWindow.titlebarAppearsTransparent = true
         playlistWindow.isOpaque = false; playlistWindow.backgroundColor = .clear
         playlistWindow.appearance = NSAppearance(named:.darkAqua)
         playlistWindow.level = .floating; playlistWindow.hidesOnDeactivate = false
@@ -749,7 +749,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         playlistWindow.setFrameAutosaveName("HARDPLAY.playlist.detached")
         mappingWindow = NSWindow(contentRect:NSRect(x:200,y:180,width:540,height:620),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
         mappingWindow.level = .floating
-        mappingWindow.title = "HARDPLAY Keyboard / MIDI"; mappingWindow.isReleasedWhenClosed = false; mappingWindow.delegate = self
+        mappingWindow.title = "Hard Play Keyboard / MIDI"; mappingWindow.isReleasedWhenClosed = false; mappingWindow.delegate = self
         mappingWindow.contentMinSize = NSSize(width:500,height:500)
         mappingWindow.appearance = NSAppearance(named:.darkAqua)
         mappingWindow.contentView = NSHostingView(rootView:MappingView().background(GlassBackdrop().overlay(Color(red:0.035,green:0.085,blue:0.16).opacity(0.48))))
@@ -764,7 +764,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             menu.addItem(withTitle:"Keyboard / MIDI…",action:#selector(showMappings),keyEquivalent:"")
             menu.addItem(withTitle:MenuBarPresentation.shared.attached ? "Detach Mini Player":"Attach Mini to Menu Bar",action:#selector(toggleMenuBarAttachment),keyEquivalent:"")
             menu.addItem(withTitle: "Add Audio…", action: #selector(addFiles), keyEquivalent: "")
-            menu.addItem(.separator()); menu.addItem(withTitle: "Quit HARDPLAY", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
+            menu.addItem(.separator()); menu.addItem(withTitle: "Quit Hard Play", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
             for item in menu.items where item.action != #selector(NSApplication.terminate(_:)) { item.target = self }
             status.menu = menu; status.button?.performClick(nil); status.menu = nil
         } else if !MenuBarPresentation.shared.attached { toggleMini() }
@@ -833,8 +833,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let badge=MenuBarBadge.state(hasTrack:player.current != nil,playing:player.playing,crossfading:player.isCrossfading,error:player.error)
         if lastStatusBadge != badge { status.button?.image=badge.image(); lastStatusBadge=badge }
         let details=player.current.map { " — \($0.title) · \(timeLabel(player.elapsed)) / \(timeLabel(player.duration))" } ?? ""
-        status.button?.toolTip="HARDPLAY · \(badge.title)\(details)\nClick: player · Right-click: windows"
-        status.button?.setAccessibilityLabel("HARDPLAY — \(badge.title)")
+        status.button?.toolTip="Hard Play · \(badge.title)\(details)\nClick: player · Right-click: windows"
+        status.button?.setAccessibilityLabel("Hard Play — \(badge.title)")
     }
     func windowDidMiniaturize(_ notification:Notification) { ControlMappings.shared.refreshStates() }
     func windowDidDeminiaturize(_ notification:Notification) { ControlMappings.shared.refreshStates() }

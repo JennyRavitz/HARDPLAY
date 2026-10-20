@@ -147,3 +147,9 @@ Distribution packages are ad-hoc signed, not notarized. The local build targets 
 GUI verification for 0.13.0: native wide layout and detached playlist were opened in an isolated QA bundle; web width 1200 showed playback left / queue right and placement round-trip returned the same queue. After stopping the preview server, reloading restored both saved silent WAV tracks and Play advanced from the local cache. This verifies server-unavailable playback, not an installed Safari/Chrome app on a clean Mac.
 
 Distribution: local self/queue/button-mode/mapping/playlist checks passed; code signature verification passed; DMG checksum verified. GitHub release assets uploaded. GitHub Actions returned startup_failure before any jobs ran; no passing CI result is claimed.
+
+## 0.14.0 — front-facing red key identity
+
+Generated front-facing Hard / Play icon is bundled in the Mac app, .icns, web manifest icons and header. The main transport uses a blank red keycap with an actual centered Play/Pause glyph, never a static label pretending to be playback state. Native UI and web preview were exercised with an isolated silent WAV: Play changed to Pause and back; selection, seeking and volume retain their existing controls. The native menu-bar drawing uses a simplified red Hard / Play key with a separate state badge and adaptive label-color state symbols. Installed browser icon refresh and appearance on other Macs remain platform-dependent.
+
+Release build self/queue/button-mode checks and 21 web tests passed; Worker artifact validation passed. New button artwork is listed in the offline shell cache. This update does not claim that the previously failing GitHub Actions startup is repaired.
