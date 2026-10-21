@@ -128,3 +128,9 @@ Click the scissors on a track or choose **Quick Edit…** from its context menu.
 Drag on the waveform to select audio; Command-drag adds another region and Command-click toggles existing clips. Split at Cursor, zoom, timeline scrolling, track height and precise In/Out fields support detailed editing. Hold Option over the waveform to audition; leaving the waveform or releasing Option stops auditioning. Preview has independent volume and is disabled while the main player plays.
 
 Select two or more regions, then **Join & Save Copy** or **Join & Replace** to export one WAV in timeline order, omitting unselected gaps. Original audio is preserved. This editor joins regions within one source track; it does not combine different source files or crossfade edit seams.
+
+## Local Web Viewer and fixed hints (0.20.0)
+
+Settings → **Web Viewer** → **Start Web Viewer** provides a QR code and a session link for another device on the same trusted Wi-Fi or Ethernet network. The responsive, read-only page shows the live set, current and next tracks, remaining time, queue and crossfade state. Audio stays on the Mac. Stop Sharing revokes the session link; sharing never starts automatically. This is a local HTTP viewer, not internet hosting. See [setup and limitations](docs/WEB-VIEWER.ru.md).
+
+Button hints now appear in a reserved **HINT** area at the top of each player window instead of floating over controls. The existing Show button hints switch still applies.

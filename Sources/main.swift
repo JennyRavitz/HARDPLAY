@@ -704,7 +704,7 @@ struct TransitionControl: View {
             Picker("Transition after \(track.title)", selection: Binding(get: { player.fadeMode(after: track) }, set: { player.setFadeMode($0, after: track) })) {
                 ForEach(FadeMode.allCases, id: \.self) { mode in Text(mode.title).tag(mode) }
             }.pickerStyle(.segmented).labelsHidden().tint(accent)
-                .help("Transition after this track: Off, Short (2 s), Long (6 s)")
+                .stageHint("Transition after this track: Off, Short (3 s), Long (6 s)")
         }
     }
 }
@@ -726,6 +726,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var settingsWindow: NSWindow!
     var themesWindow: NSWindow!
     var backupWindow: NSWindow!
+    var viewerWindow:NSWindow!
     var quickEditWindow:NSWindow?
     var quickEditModel:QuickEditModel?
     var pocketWindow: NSPanel!
@@ -753,7 +754,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .receive(on:RunLoop.main).sink { [weak self] _ in self?.updateStatusItem() }
         lockUpdates = ControlLock.shared.objectWillChange.receive(on:RunLoop.main).sink { [weak self] _ in
             guard let self else { return }
-            for window in [self.mainWindow,self.miniWindow,self.playlistWindow,self.mappingWindow,self.settingsWindow,self.themesWindow,self.backupWindow] {
+            for window in [self.mainWindow,self.miniWindow,self.playlistWindow,self.mappingWindow,self.settingsWindow,self.themesWindow,self.backupWindow,self.viewerWindow] {
                 window?.standardWindowButton(.miniaturizeButton)?.isEnabled = !ControlLock.shared.isLocked
             }
         }
@@ -775,6 +776,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let redo=appMenu.addItem(withTitle:"Redo Playlist Edit",action:#selector(redoQueueEdit),keyEquivalent:"z");redo.keyEquivalentModifierMask=[.command,.shift]
         appMenu.addItem(withTitle:"Settings…",action:#selector(showSettingsWindow),keyEquivalent:",")
         appMenu.addItem(withTitle:"Timecode & Backup…",action:#selector(showBackupWindow),keyEquivalent:"")
+        appMenu.addItem(withTitle:"Web Viewer…",action:#selector(showWebViewer),keyEquivalent:"")
         appMenu.addItem(withTitle: "Show Hard Play", action: #selector(showMain), keyEquivalent: "1")
         appMenu.addItem(withTitle: "Mini Player", action: #selector(toggleMini), keyEquivalent: "2")
         appMenu.addItem(withTitle:"Keyboard / MIDI…",action:#selector(showMappings),keyEquivalent:"m").keyEquivalentModifierMask = [.command,.shift]
@@ -847,6 +849,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let window=quickEditWindow ?? utilityWindow(title:"Hard Play Quick Edit",width:760,height:780)
         window.contentMinSize=NSSize(width:620,height:650);window.contentView=NSHostingView(rootView:QuickEditView(edit:model).background(ThemedBackdrop()).preferredColorScheme(.dark))
         quickEditWindow=window;restore(window);NSApp.activate(ignoringOtherApps:true)
+    }
+    @objc func showWebViewer() {
+        guard !SetupLock.shared.settingsBlocked,!ControlLock.shared.isLocked else {return}
+        if viewerWindow == nil {
+            viewerWindow=utilityWindow(title:"Hard Play Web Viewer",width:420,height:720)
+            viewerWindow.contentView=NSHostingView(rootView:WebViewerView().background(ThemedBackdrop()).preferredColorScheme(.dark))
+            viewerWindow.contentMinSize=NSSize(width:380,height:500);viewerWindow.center()
+        }
+        restore(viewerWindow);NSApp.activate(ignoringOtherApps:true)
     }
     @objc func showBackupWindow() {
         guard !SetupLock.shared.settingsBlocked,!ControlLock.shared.isLocked else {return}
@@ -1021,7 +1032,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 }
 
-if CommandLine.arguments.contains("--clip-test") {
+if CommandLine.arguments.contains("--viewer-test") {
+    Task { @MainActor in do {try await runViewerTests();exit(0)}catch {print("FAIL: \(error.localizedDescription)");exit(1)} };RunLoop.main.run()
+} else if CommandLine.arguments.contains("--viewer-fixture") {
+    Task { @MainActor in await runViewerFixture() };RunLoop.main.run()
+} else if CommandLine.arguments.contains("--clip-test") {
     Task { @MainActor in do {try await runClipTests();exit(0)}catch {print("FAIL: \(error.localizedDescription)");exit(1)} };RunLoop.main.run()
 } else if CommandLine.arguments.contains("--backup-test") || CommandLine.arguments.contains("--backup-link-test") {
     Task { @MainActor in

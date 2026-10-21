@@ -133,7 +133,7 @@ struct StageDeck: View {
                     .font(.system(size: 9, weight: .semibold)).tracking(1).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.65))
             }
             Text(track?.title ?? (right ? "End of Queue" : "Add your music"))
-                .font(.system(size: (compact ? 13 : 16) * AppearancePreferences.shared.theme.textScale, weight: .semibold)).lineLimit(2).frame(height:(compact ? 34 : 40) * AppearancePreferences.shared.theme.textScale,alignment:.topLeading).help(track?.title ?? "")
+                .font(.system(size: (compact ? 13 : 16) * AppearancePreferences.shared.theme.textScale, weight: .semibold)).lineLimit(2).frame(height:(compact ? 34 : 40) * AppearancePreferences.shared.theme.textScale,alignment:.topLeading).stageHint(track?.title ?? "No track selected")
             HStack { Text("\(timeLabel(elapsed)) / \(timeLabel(actualDuration))"); Spacer(); Text("\(Int(gain * 100))%") }
                 .font(.system(size: 10, design: .monospaced)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.7))
             ZStack {
@@ -246,6 +246,7 @@ struct PlayerView: View {
     @ViewBuilder var body: some View {
         Group { if settingsOnly { settings } else if playlistOnly { detachedPlaylist } else { playerBody } }
             .audioFileDrop(enabled:!settingsOnly)
+            .fixedControlHints()
     }
     @ViewBuilder private var playerBody: some View {
         if compact { stageBody(wide:false).frame(minWidth:380) }
@@ -328,7 +329,7 @@ struct PlayerView: View {
                         } label: { Label(playlistWindow.edge?.title ?? "Dock",systemImage:"rectangle.split.2x1").font(.system(size:11)).padding(6) }
                             .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Playlist Dock Side")
                         Button { playlistWindow.toggleSeparate() } label: { Label("Separate Window",systemImage:"arrow.up.right.square").font(.system(size:11)).padding(6) }
-                            .buttonStyle(PlayerControlStyle(active:playlistWindow.separateVisible)).accessibilityLabel("Playlist Separate Window").accessibilityValue(playlistWindow.separateVisible ? "Open":"Hidden").help(playlistWindow.separateVisible ? "Hide separate playlist window":"Open separate playlist window")
+                            .buttonStyle(PlayerControlStyle(active:playlistWindow.separateVisible)).accessibilityLabel("Playlist Separate Window").accessibilityValue(playlistWindow.separateVisible ? "Open":"Hidden").stageHint(playlistWindow.separateVisible ? "Hide separate playlist window":"Open separate playlist window")
                         Spacer(minLength:0)
                     }
                     if playlistWindow.detached {
@@ -490,6 +491,7 @@ struct PlayerView: View {
             Button { AppDelegate.shared.showThemesWindow() } label: { Label("Themes & Appearance…",systemImage:"paintpalette").font(.system(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
             Button { AppDelegate.shared.showMappings() } label: { Label("Keyboard / MIDI…",systemImage:"pianokeys").font(.system(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
             Button { AppDelegate.shared.showBackupWindow() } label: { Label("Timecode & Backup…",systemImage:"network").font(.system(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
+            Button {AppDelegate.shared.showWebViewer()} label: {Label("Web Viewer…",systemImage:"iphone").font(.system(size:12)).padding(8)}.buttonStyle(PlayerControlStyle())
             Toggle("Show button hints",isOn:$hints.enabled)
             Text("Turn off for a distraction-free live set.").font(.system(size:10)).foregroundStyle(.secondary)
             Divider()

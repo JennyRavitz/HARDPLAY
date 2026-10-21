@@ -47,7 +47,7 @@ struct QueueTrackRow: View {
                         Text(track.title).font(.system(size:15 * AppearancePreferences.shared.theme.textScale,weight:.medium)).lineLimit(2).multilineTextAlignment(.leading)
                         Spacer(minLength:0)
                     }.frame(minHeight:36).contentShape(Rectangle())
-                }.buttonStyle(.plain).disabled(setup.selectionBlocked).help("Select · " + track.title).accessibilityLabel("Select Track: \(track.title)")
+                }.buttonStyle(.plain).disabled(setup.selectionBlocked).stageHint("Select without playing · " + track.title).accessibilityLabel("Select Track: \(track.title)")
             }
             Button { player.playFromQueue(track) } label: {
                 Image(systemName:player.currentID == track.id && player.playing ? "pause.fill":"play.fill").font(.system(size:12)).frame(width:26,height:28)

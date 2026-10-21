@@ -17,13 +17,13 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>local.hardplay.player</string>
 <key>CFBundleName</key><string>Hard Play</string>
 <key>CFBundleDisplayName</key><string>Hard Play</string>
-<key>CFBundleVersion</key><string>27</string>
-<key>CFBundleShortVersionString</key><string>0.19.0</string>
+<key>CFBundleVersion</key><string>28</string>
+<key>CFBundleShortVersionString</key><string>0.20.0</string>
 <key>CFBundleDevelopmentRegion</key><string>en</string>
 <key>CFBundleLocalizations</key><array><string>en</string></array>
 <key>UTExportedTypeDeclarations</key><array><dict><key>UTTypeIdentifier</key><string>local.hardplay.playlist</string><key>UTTypeDescription</key><string>HARDPLAY Playlist</string><key>UTTypeConformsTo</key><array><string>public.json</string></array><key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>hardplay</string></array><key>public.mime-type</key><string>application/vnd.hardplay.playlist+json</string></dict></dict></array>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>NSLocalNetworkUsageDescription</key><string>Connect to your paired HARDPLAY Mac and compare your backup set on the local network.</string>
+<key>NSLocalNetworkUsageDescription</key><string>Share a read-only live playlist viewer with your phone and connect to your backup Mac on the local network.</string>
 <key>NSBonjourServices</key><array><string>_hardplay-bk._tcp</string></array>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><false/>

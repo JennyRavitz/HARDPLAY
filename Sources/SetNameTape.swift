@@ -35,6 +35,6 @@ struct SetNameTape:View {
             .onChange(of:focused) {_,value in if !value {finish(true)}}
             .onChange(of:setup.editsBlocked) {_,value in if value {finish(false)}}
             .onChange(of:lock.isLocked) {_,value in if value {finish(false)}}
-            .help("Double-click to rename · Enter to save · Esc to cancel")
+            .stageHint("Double-click to rename · Enter to save · Esc to cancel").accessibilityHint("Double-click to rename · Enter to save · Esc to cancel")
     }
 }
