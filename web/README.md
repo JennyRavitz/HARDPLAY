@@ -77,3 +77,7 @@ My Set toggles a playlist drawer, with Below / Right / Left / Above placement an
 ### Pocket position and lock panel (0.15.1)
 
 Tap the left bezel beside the display to open/close the side panel. Position and Controls have explicit labels and states; the display also reports whether position is fixed and buttons are available. Drag the top grip while Position is Unlocked. Fixed prevents dragging and persists with the position after reload. Lock Controls blocks transport; hold its button for one second to unlock. A completed unlock consumes the release click so it cannot immediately relock. At the left viewport edge the panel moves over the bezel to stay reachable.
+
+### Updating an older offline installation
+
+The `/app/` entrypoint serves the same player with its own shell URL paths. Use it when an older offline service worker keeps showing the previous interface. Audio and playlists remain in the same origin's IndexedDB; no site data needs to be cleared. Relative shell assets and cloud download routes work under either entrypoint.

@@ -23,3 +23,10 @@ assert.equal(
 );
 
 console.log("Artifact is valid ESM and exports default.fetch");
+
+for (const path of ['/', '/app/', '/app/app.mjs', '/app/appearance.mjs', '/app/sw.js']) {
+  const response = await workerModule.default.fetch(new Request('https://hardplay.test'+path));
+  assert.equal(response.status,200,path);
+}
+assert.equal((await workerModule.default.fetch(new Request('https://hardplay.test/app/api/cloud'))).status,400);
+console.log('Root and /app/ entrypoints, offline assets and cloud routing passed');

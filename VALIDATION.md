@@ -171,3 +171,5 @@ Web UI: moved the pocket widget, fixed its position, attempted dragging again an
 Native: dedicated AppKit mouse/keyboard hold view avoids competing SwiftUI Button and long-press gestures. Release build/self/queue checks pass; transparent display-bezel hit area, explicit position/control state rows, saved window position, isMovable position protection and regular-mini position lock are implemented. Final native pointer/hold validation is pending because the Mac was locked; no successful native hold test is claimed yet.
 
 Cleanup: closed old localhost preview tabs and Drawer QA, stopped owned preview servers 4190–4194. One preview server remains temporarily for verification. An older real HARDPLAY process was discovered at the same build path; the locked Mac prevented its normal UI quit/relaunch. Do not confuse its old runtime with the rebuilt 0.15.1 files.
+
+Web update entrypoint: added `/app/` aliases for shell assets and cloud proxy, preserving the origin and IndexedDB. This avoids the old root shell's cache hits without clearing user audio. Artifact validation checks root, `/app/`, script/service-worker routes and invalid-cloud-request handling.
