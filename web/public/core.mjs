@@ -42,3 +42,5 @@ export function actionInfo(id){if(typeof id!=='string')return null;return ACTION
 export function validateMaps(value){if(value?.version!==1||value.type!=='hardplay-web-controls'||!Array.isArray(value.bindings)||value.bindings.length>2000)throw Error('Invalid control set.');const inputs=new Set();for(const b of value.bindings){const a=actionInfo(b.action);if(!a||b.action==='volume'&&(b.input!=='midi'||b.mode!=='trigger'||!/:176:\d+:\d+$/.test(b.signal))||!['trigger','toggle'].includes(b.mode)||b.mode==='toggle'&&!a[2]||!['key','midi'].includes(b.input)||typeof b.signal!=='string'||b.signal.length>500||inputs.has(b.input+b.signal))throw Error('Invalid or duplicate assignment.');inputs.add(b.input+b.signal)}return value}
 export function keySignal(e){return `${e.ctrlKey?'Ctrl+':''}${e.altKey?'Alt+':''}${e.shiftKey?'Shift+':''}${e.metaKey?'Meta+':''}${e.code}`}
 export function keyLabel(e){return `${e.ctrlKey?'⌃':''}${e.altKey?'⌥':''}${e.shiftKey?'⇧':''}${e.metaKey?'⌘':''}${e.code==='Space'?'Space':e.code.replace(/^(Key|Digit)/,'')}`}
+
+export function setName(value){return String(value??'').replace(/[\r\n\t]+/g,' ').trim().slice(0,100)||'My Set'}

@@ -61,7 +61,9 @@ struct QueueTrackRow: View {
                 .disabled(setup.editsBlocked)
                 .opacity(row.editing || row.hovering ? 1 : 0.65)
                 .accessibilityLabel(row.editing ? "Save Track Name" : "Rename Track: \(track.title)")
+            Button {AppDelegate.shared.showQuickEdit(track)} label: {Image(systemName:"scissors").font(.system(size:12)).frame(width:24,height:28)}.buttonStyle(.plain).foregroundStyle(accent).disabled(setup.editsBlocked).accessibilityLabel("Quick Edit: \(track.title)").stageHint("Trim audio · save a copy or replace this item",below:true)
             Menu {
+                Button {AppDelegate.shared.showQuickEdit(track)} label: {Label("Quick Edit…",systemImage:"scissors")}.disabled(setup.editsBlocked)
                 Button { player.duplicate(track) } label: { Label("Duplicate Track",systemImage:"doc.on.doc") }
                 Button { beginRename() } label: { Label("Rename Track",systemImage:"pencil") }
                 Button("Use Filename") { player.rename(track,to:nil) }.disabled(track.customTitle == nil)
@@ -87,6 +89,7 @@ struct QueueTrackRow: View {
             .onChange(of:lock.isLocked) { _, locked in if locked { finishRename(save:false) } }
             .contextMenu {
                 Button { player.play(track) } label: { Label("Play",systemImage:"play.fill") }.disabled(setup.selectionBlocked || setup.playbackBlocked)
+                Button {AppDelegate.shared.showQuickEdit(track)} label: {Label("Quick Edit…",systemImage:"scissors")}.disabled(setup.editsBlocked)
                 Button { player.duplicate(track) } label: { Label("Duplicate Track",systemImage:"doc.on.doc") }.disabled(setup.editsBlocked)
                 Divider()
                 Button { beginRename() } label: { Label("Rename Track",systemImage:"pencil") }.disabled(setup.editsBlocked)

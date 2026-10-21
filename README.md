@@ -8,7 +8,7 @@ Hard Play is a stage audio player for macOS, with an installable offline web edi
 
 Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/latest). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
-- **macOS 14 Sonoma or newer.** The downloadable 0.15.2 build is for **Apple Silicon (arm64)**. Intel Macs can build the source locally; this release is not a universal binary.
+- **macOS 14 Sonoma or newer.** Packaged builds are for **Apple Silicon (arm64)**. Intel Macs can build the source locally; these packages are not universal binaries.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.
 - Native playback of local audio needs no network connection. Cloud-only files must first be downloaded to the Mac.
 - The app displays an ordinary Dock icon and also provides a menu bar player.
@@ -105,3 +105,26 @@ Drag the pocket player anywhere using its top/body background while Position is 
 ### Desktop placement (0.15.2)
 
 The Pocket Player heading is **HARD PLAY**, without a separator. Drag that top heading to move the desktop widget. Screen-edge constraints use the visible player face rather than the transparent lock-drawer margin, allowing placement against the left/right/top/bottom edges. Position and its lock persist. Near the left edge, the Locks panel overlays the display so it remains reachable. Position lock and playback lock stay independent.
+## Timecode and redundant playback roadmap
+
+The proposed native two-Mac workflow, timecode output and failover design are described in [the Russian implementation plan](docs/TIMECODE-BACKUP-PLAN.ru.md). This is a roadmap; timecode and automatic backup switching are not implemented yet.
+
+## Backup preparation and resizable pocket (0.17.0)
+
+Settings → **Timecode & Backup** opens an independent window for encrypted pairing of two Macs, local set checks and a portable backup package with audio. This first stage compares content hashes, order, fades and playback settings. It does not synchronize playback, emit timecode or switch audio. See [setup instructions in Russian](docs/BACKUP-SETUP.ru.md).
+
+The native Pocket Player includes a seek slider with hover time. Drag its lower-right grip to resize it; the regular Mini Player is resizable too. Position lock fixes both location and size, while Controls Lock protects seeking and transport separately. Pocket size and position persist.
+
+Double-click **My Set** to rename it inline; Enter saves and Esc cancels. The tape grows with the name. File/folder drops are handled by the main, mini, playlist and pocket surfaces.
+
+## Quick Edit (0.18.0)
+
+Click the scissors on a track or choose **Quick Edit…** from its context menu. Set In/Out points, preview the selection, then **Save as Copy** or **Replace in Playlist**. The editor exports a separate WAV at the original sample rate and channel count; source audio is preserved. Queue changes support Undo/Redo. See [Quick Edit instructions](docs/QUICK-EDIT.ru.md).
+
+**Separate Window** is a toggle: click to show the playlist window, click again to hide it. Its highlighted state follows actual window visibility, including minimize and close.
+
+## Waveform editing and joining (0.19.0)
+
+Drag on the waveform to select audio; Command-drag adds another region and Command-click toggles existing clips. Split at Cursor, zoom, timeline scrolling, track height and precise In/Out fields support detailed editing. Hold Option over the waveform to audition; leaving the waveform or releasing Option stops auditioning. Preview has independent volume and is disabled while the main player plays.
+
+Select two or more regions, then **Join & Save Copy** or **Join & Replace** to export one WAV in timeline order, omitting unselected gaps. Original audio is preserved. This editor joins regions within one source track; it does not combine different source files or crossfade edit seams.

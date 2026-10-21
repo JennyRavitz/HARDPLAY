@@ -11,6 +11,18 @@ final class PlaylistWindowState: ObservableObject {
     @Published private(set) var detached = UserDefaults.standard.bool(forKey:"playlistDetached")
     @Published private(set) var edge = UserDefaults.standard.string(forKey:"playlistDockEdge").flatMap(PlaylistDockEdge.init(rawValue:))
     @Published private(set) var fromMini = false
+    @Published private(set) var separateVisible = false
+    static func shouldHideSeparate(detached:Bool,docked:Bool,visible:Bool,minimized:Bool)->Bool {detached && !docked && visible && !minimized}
+    func syncVisibility() {
+        let panel=AppDelegate.shared?.playlistWindow
+        let visible=detached && edge == nil && panel?.isVisible == true && panel?.isMiniaturized == false
+        if separateVisible != visible {separateVisible=visible}
+    }
+    func toggleSeparate() {
+        guard !ControlLock.shared.isLocked,let app=AppDelegate.shared,let panel=app.playlistWindow else {return}
+        if Self.shouldHideSeparate(detached:detached,docked:edge != nil,visible:panel.isVisible,minimized:panel.isMiniaturized) {panel.orderOut(nil);syncVisibility();ControlMappings.shared.refreshStates()}
+        else {detach()}
+    }
     private var positioning = false
     func detach() {
         guard !ControlLock.shared.isLocked else { return }
@@ -24,6 +36,7 @@ final class PlaylistWindowState: ObservableObject {
         positionDock()
         owner.addChildWindow(app.playlistWindow,ordered:.above)
         app.playlistWindow.orderFront(nil)
+        syncVisibility()
         ControlMappings.shared.refreshStates()
     }
     func toggleDrawer(fromMini:Bool) {
@@ -35,7 +48,7 @@ final class PlaylistWindowState: ObservableObject {
     }
     func attach(toMini:Bool) {
         guard !ControlLock.shared.isLocked else { return }
-        releaseParent();edge=nil;detached=false;save();AppDelegate.shared.playlistWindow.orderOut(nil)
+        releaseParent();edge=nil;detached=false;save();AppDelegate.shared.playlistWindow.orderOut(nil);syncVisibility()
         if toMini { AppDelegate.shared.showMini() } else { AppDelegate.shared.showMain() }
     }
     private func save() {

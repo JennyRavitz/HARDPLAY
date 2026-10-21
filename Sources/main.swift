@@ -8,10 +8,11 @@ import CoreMIDI
 import Combine
 
 struct Track: Identifiable, Codable, Equatable {
-    var id: String { occurrenceID ?? url.path }
+    var id: String { occurrenceID ?? identity ?? url.path }
     let url: URL
     var customTitle: String? = nil
     var occurrenceID: String? = nil
+    var identity: String? = nil
     var title: String { customTitle ?? url.deletingPathExtension().lastPathComponent }
     var format: String { url.pathExtension.uppercased() }
 }
@@ -28,7 +29,7 @@ final class Player: ObservableObject {
     static let shared = Player()
     @Published var tracks: [Track] = []
     @Published private(set) var playlistURL: URL?
-    @Published private(set) var playlistName = "Untitled"
+    @Published private(set) var playlistName = "My Set"
     @Published private(set) var recentPlaylists: [URL] = []
     @Published var selectedID: String?
     @Published var currentID: String?
@@ -84,7 +85,8 @@ final class Player: ObservableObject {
         self.defaults = defaults
         publishNowPlaying = remoteCommands
         if let path = defaults.string(forKey: "playlistURL") { playlistURL = URL(fileURLWithPath:path) }
-        playlistName = defaults.string(forKey:"playlistName") ?? "Untitled"
+        playlistName = defaults.string(forKey:"playlistName") ?? "My Set"
+        if playlistName == "Untitled" { playlistName="My Set" }
         recentPlaylists = (defaults.stringArray(forKey:"recentPlaylists") ?? []).map { URL(fileURLWithPath:$0) }
         if let data = defaults.data(forKey: "transitionModes"), let modes = try? JSONDecoder().decode([String: FadeMode].self, from: data) { transitionModes = modes }
         positions = defaults.dictionary(forKey: "positions") as? [String: Double] ?? [:]
@@ -99,7 +101,7 @@ final class Player: ObservableObject {
                 var stale = false
                 guard let url = try? URL(resolvingBookmarkData: bookmark, options: .withSecurityScope, bookmarkDataIsStale: &stale) else { return track }
                 if url.startAccessingSecurityScopedResource() { accessed.insert(url) }
-                let restored = Track(url:url,customTitle:track.customTitle,occurrenceID:track.occurrenceID)
+                let restored = Track(url:url,customTitle:track.customTitle,occurrenceID:track.occurrenceID,identity:track.identity)
                 restoredTrackIDs[track.id] = restored.id
                 if let position = positions[track.id] { positions[restored.id] = position }
                 if let mode = transitionModes[track.id] { transitionModes[restored.id] = mode }
@@ -140,13 +142,13 @@ final class Player: ObservableObject {
         }
     }
     private struct QueueEdit {
-        var tracks:[Track];var modes:[String:FadeMode];var positions:[String:Double];var bookmarks:[String:Data];var selected:String?
+        var tracks:[Track];var modes:[String:FadeMode];var positions:[String:Double];var bookmarks:[String:Data];var selected:String?;var name:String
     }
     private var pastEdits:[QueueEdit] = []
     private var futureEdits:[QueueEdit] = []
     var canUndoEdit:Bool { !pastEdits.isEmpty }
     var canRedoEdit:Bool { !futureEdits.isEmpty }
-    private func editSnapshot()->QueueEdit { QueueEdit(tracks:tracks,modes:transitionModes,positions:positions,bookmarks:bookmarks,selected:selectedID) }
+    private func editSnapshot()->QueueEdit { QueueEdit(tracks:tracks,modes:transitionModes,positions:positions,bookmarks:bookmarks,selected:selectedID,name:playlistName) }
     private func recordEdit() { pastEdits.append(editSnapshot());if pastEdits.count>30 { pastEdits.removeFirst() };futureEdits=[];objectWillChange.send() }
     func undoEdit() {
         guard !setupLock.editsBlocked,!ControlLock.shared.isLocked,let edit=pastEdits.popLast() else { return }
@@ -158,8 +160,8 @@ final class Player: ObservableObject {
     }
     private func restoreEdit(_ edit:QueueEdit) {
         cancelCrossfade()
-        if !edit.tracks.contains(where:{$0.id == currentID}) { pause();loadingTask?.cancel();engine.replaceCurrentItem(with:nil);currentID=nil;elapsed=0;duration=0 }
-        tracks=edit.tracks;transitionModes=edit.modes;positions.merge(edit.positions) { current,_ in current };bookmarks=edit.bookmarks;selectedID=edit.selected
+        if !edit.tracks.contains(where:{$0.id == currentID}) || edit.tracks.first(where:{$0.id == currentID})?.url != current?.url { pause();loadingTask?.cancel();engine.replaceCurrentItem(with:nil);currentID=nil;elapsed=0;duration=0 }
+        playlistName=edit.name;tracks=edit.tracks;transitionModes=edit.modes;positions.merge(edit.positions) { current,_ in current };bookmarks=edit.bookmarks;selectedID=edit.selected
         if current == nil,let first=selectedTrack ?? tracks.first { load(first,autoplay:false,position:positions[first.id] ?? 0) }
         persist();nowPlaying();objectWillChange.send()
     }
@@ -239,6 +241,22 @@ final class Player: ObservableObject {
         bookmarks[copy.id]=bookmarks[track.id]; selectedID=copy.id; nextChoice=nil
         if !isCrossfading { preparationTask?.cancel(); preparationTask=nil; preparationID=nil; prepared?.player.pause(); prepared=nil; manualPreparation=false }
         persist(); return copy
+    }
+    @discardableResult func applyEditedClip(_ source:Track,file:URL,replace:Bool)throws->Track {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked,let index=tracks.firstIndex(where:{$0.id == source.id}),tracks[index].url == source.url else {throw BackupFailure("The track changed or editing is locked. The exported file is still saved.")}
+        guard !replace || !((currentID == source.id || outgoingTrack?.id == source.id) && playing) else {throw BackupFailure("Pause this track before replacing it. The exported file is still saved.")}
+        guard !replace || currentID != source.id || !setupLock.playbackBlocked else {throw BackupFailure("Unlock playback controls before replacing this track.")}
+        recordEdit()
+        let original=tracks[index]
+        let edited=Track(url:file,customTitle:original.title+" · Edit",occurrenceID:replace ? original.occurrenceID:UUID().uuidString,identity:replace ? original.identity ?? (original.occurrenceID == nil ? original.id:nil):nil)
+        let mode=fadeMode(after:original)
+        if replace {tracks[index]=edited} else {tracks.insert(edited,at:index+1)}
+        transitionModes[edited.id]=mode;positions[edited.id]=0
+        bookmarks[edited.id]=try? file.bookmarkData(options:.withSecurityScope,includingResourceValuesForKeys:nil,relativeTo:nil)
+        selectedID=edited.id;nextChoice=nil
+        if !isCrossfading {preparationTask?.cancel();preparationTask=nil;preparationID=nil;prepared?.player.pause();prepared=nil;manualPreparation=false}
+        if replace,currentID == original.id {load(edited,autoplay:false,position:0)}
+        persist();nowPlaying();return edited
     }
     func play(_ track: Track) {
         guard !setupLock.selectionBlocked else { return }
@@ -345,7 +363,7 @@ final class Player: ObservableObject {
         d.set(recentPlaylists.map(\.path),forKey:"recentPlaylists")
     }
     func add(_ urls: [URL]) {
-        guard !setupLock.editsBlocked else { return }
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked else { return }
         var files: [URL] = []
         for url in urls {
             if url.startAccessingSecurityScopedResource() { accessed.insert(url) }
@@ -372,15 +390,21 @@ final class Player: ObservableObject {
         tracks[index].customTitle = trimmed.isEmpty ? nil : String(trimmed.prefix(300))
         persist(); nowPlaying()
     }
+    func renameSet(to title:String) {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked else {return}
+        let value=String(title.replacingOccurrences(of:"\n",with:" ").replacingOccurrences(of:"\r",with:" ").trimmingCharacters(in:.whitespacesAndNewlines).prefix(100))
+        let name=value.isEmpty ? "My Set":value
+        guard name != playlistName else {return};recordEdit();playlistName=name;persist()
+    }
     private func notePlaylist(_ url: URL) {
-        playlistURL = url; playlistName = url.deletingPathExtension().lastPathComponent
+        playlistURL = url
         recentPlaylists.removeAll { $0 == url }; recentPlaylists.insert(url,at:0)
         recentPlaylists = Array(recentPlaylists.prefix(8))
     }
     func writePlaylist(to url: URL) throws {
         rememberPosition()
-        let file = SavedPlaylist(name:url.deletingPathExtension().lastPathComponent,
-            tracks:tracks.map { SavedPlaylist.Entry(path:SavedPlaylist.relativePath($0.url,to:url.deletingLastPathComponent()),bookmark:bookmarks[$0.id],fade:fadeMode(after:$0),position:positions[$0.id] ?? 0,title:$0.customTitle,occurrenceID:$0.occurrenceID) },
+        let file = SavedPlaylist(name:playlistName,
+            tracks:tracks.map { SavedPlaylist.Entry(path:SavedPlaylist.relativePath($0.url,to:url.deletingLastPathComponent()),bookmark:bookmarks[$0.id],fade:fadeMode(after:$0),position:positions[$0.id] ?? 0,title:$0.customTitle,occurrenceID:$0.occurrenceID,identity:$0.identity) },
             selectedIndex:tracks.firstIndex { $0.id == currentID },highlightedIndex:tracks.firstIndex { $0.id == selectedID },
             options:.init(startMode:startMode,endMode:endMode,stopBeforeEnd:stopBeforeEnd,shuffle:shuffle,repeatAll:repeatAll))
         try file.write(to:url); notePlaylist(url); persist()
@@ -398,7 +422,7 @@ final class Player: ObservableObject {
                 if let bookmarked = try? URL(resolvingBookmarkData:data,options:.withSecurityScope,bookmarkDataIsStale:&stale) { target = bookmarked }
             }
             if target.startAccessingSecurityScopedResource() { accessed.insert(target) }
-            var track = Track(url:target,customTitle:entry.title,occurrenceID:entry.occurrenceID)
+            var track = Track(url:target,customTitle:entry.title,occurrenceID:entry.occurrenceID,identity:entry.identity)
             if resolved.contains(where:{$0.id == track.id}) { track.occurrenceID=UUID().uuidString }
             if file.selectedIndex == index { selected = track.id }
             guard !resolved.contains(where:{$0.id == track.id}) else { continue }
@@ -412,7 +436,7 @@ final class Player: ObservableObject {
         tracks = resolved; selectedID=file.highlightedIndex.flatMap { resolved.indices.contains($0) ? resolved[$0].id:nil }; currentID = nil; elapsed = 0; duration = 0; positions = savedPositions; bookmarks = savedBookmarks; transitionModes = modes
         startMode = file.options.startMode; endMode = file.options.endMode; stopBeforeEnd = file.options.stopBeforeEnd
         shuffle = file.options.shuffle; repeatAll = file.options.repeatAll
-        notePlaylist(url); restoring = false
+        notePlaylist(url);playlistName=file.name.isEmpty ? "My Set":String(file.name.prefix(100)); restoring = false
         let first = selected.flatMap { id in resolved.first { $0.id == id } } ?? resolved.first
         if let first { load(first,autoplay:false,position:savedPositions[first.id] ?? 0) }
         if missing > 0 { error = "\(missing) audio file(s) are missing. Their positions in the playlist have been kept." }
@@ -530,6 +554,7 @@ final class Player: ObservableObject {
         }
         rememberPosition(); nowPlaying(); persist()
     }
+    func backupPosition(_ track:Track)->Double { positions[track.id] ?? 0 }
     func rememberPosition() {
         guard !isLoading, let id = currentID else { return }
         positions[id] = elapsed
@@ -700,6 +725,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var mappingWindow: NSWindow!
     var settingsWindow: NSWindow!
     var themesWindow: NSWindow!
+    var backupWindow: NSWindow!
+    var quickEditWindow:NSWindow?
+    var quickEditModel:QuickEditModel?
     var pocketWindow: NSPanel!
     var appearanceUpdates: AnyCancellable?
     var lockUpdates: AnyCancellable?
@@ -725,7 +753,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .receive(on:RunLoop.main).sink { [weak self] _ in self?.updateStatusItem() }
         lockUpdates = ControlLock.shared.objectWillChange.receive(on:RunLoop.main).sink { [weak self] _ in
             guard let self else { return }
-            for window in [self.mainWindow,self.miniWindow,self.playlistWindow,self.mappingWindow,self.settingsWindow,self.themesWindow] {
+            for window in [self.mainWindow,self.miniWindow,self.playlistWindow,self.mappingWindow,self.settingsWindow,self.themesWindow,self.backupWindow] {
                 window?.standardWindowButton(.miniaturizeButton)?.isEnabled = !ControlLock.shared.isLocked
             }
         }
@@ -746,6 +774,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(withTitle:"Undo Playlist Edit",action:#selector(undoQueueEdit),keyEquivalent:"z")
         let redo=appMenu.addItem(withTitle:"Redo Playlist Edit",action:#selector(redoQueueEdit),keyEquivalent:"z");redo.keyEquivalentModifierMask=[.command,.shift]
         appMenu.addItem(withTitle:"Settings…",action:#selector(showSettingsWindow),keyEquivalent:",")
+        appMenu.addItem(withTitle:"Timecode & Backup…",action:#selector(showBackupWindow),keyEquivalent:"")
         appMenu.addItem(withTitle: "Show Hard Play", action: #selector(showMain), keyEquivalent: "1")
         appMenu.addItem(withTitle: "Mini Player", action: #selector(toggleMini), keyEquivalent: "2")
         appMenu.addItem(withTitle:"Keyboard / MIDI…",action:#selector(showMappings),keyEquivalent:"m").keyEquivalentModifierMask = [.command,.shift]
@@ -765,7 +794,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mainWindow.isReleasedWhenClosed = false; mainWindow.delegate = self
         mainWindow.contentView = NSHostingView(rootView: PlayerView().padding(.top, 20).background(ThemedBackdrop()).preferredColorScheme(.dark))
         mainWindow.center(); mainWindow.setFrameAutosaveName("HARDPLAY.stage.minimal.minimal.main")
-        miniWindow = FloatingPanel(contentRect: NSRect(x: 100, y: 100, width: 380, height: 540), styleMask: [.titled, .closable, .miniaturizable, .nonactivatingPanel, .fullSizeContentView], backing: .buffered, defer: false)
+        miniWindow = FloatingPanel(contentRect: NSRect(x: 100, y: 100, width: 380, height: 540), styleMask: [.titled, .closable, .miniaturizable, .resizable, .nonactivatingPanel, .fullSizeContentView], backing: .buffered, defer: false)
         miniWindow.isOpaque = false; miniWindow.backgroundColor = .clear
         miniWindow.appearance = NSAppearance(named: .darkAqua)
         miniWindow.title = "Hard Play Mini"; miniWindow.titleVisibility = .hidden; miniWindow.titlebarAppearsTransparent = true
@@ -774,6 +803,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         miniWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         miniWindow.hidesOnDeactivate = false; miniWindow.isReleasedWhenClosed = false; miniWindow.delegate = self
         miniWindow.contentView = NSHostingView(rootView: PlayerView(compact: true).padding(.top, 8).background(ThemedBackdrop()))
+        miniWindow.contentMinSize=NSSize(width:380,height:540);miniWindow.contentMaxSize=NSSize(width:760,height:1000)
         miniWindow.setFrameAutosaveName("HARDPLAY.stage.minimal.mini")
         playlistWindow = FloatingPanel(contentRect:NSRect(x:160,y:160,width:440,height:480),styleMask:[.titled,.closable,.miniaturizable,.resizable,.nonactivatingPanel,.fullSizeContentView],backing:.buffered,defer:false)
         playlistWindow.title = "Hard Play Playlist"; playlistWindow.titlebarAppearsTransparent = true
@@ -793,7 +823,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mappingWindow.appearance = NSAppearance(named:.darkAqua)
         mappingWindow.contentView = NSHostingView(rootView:MappingView().background(ThemedBackdrop()))
         mappingWindow.setFrameAutosaveName("HARDPLAY.mappings")
-        pocketWindow = PocketPanel(contentRect:NSRect(x:100,y:100,width:344,height:296),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+        pocketWindow = PocketPanel(contentRect:NSRect(x:100,y:100,width:344,height:320),styleMask:[.borderless,.nonactivatingPanel,.resizable],backing:.buffered,defer:false)
         pocketWindow.isOpaque=false;pocketWindow.backgroundColor = .clear;pocketWindow.level = .floating
         pocketWindow.title="Hard Play Pocket";pocketWindow.hasShadow=true;pocketWindow.isMovableByWindowBackground=true;pocketWindow.hidesOnDeactivate=false;pocketWindow.isReleasedWhenClosed=false
         pocketWindow.collectionBehavior=[.canJoinAllSpaces,.fullScreenAuxiliary]
@@ -801,11 +831,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         pocketWindow.delegate=self;pocketWindow.isMovable = !FloatingPlacement.shared.pocketLocked
         pocketWindow.setFrameAutosaveName("HARDPLAY.pocket")
         if !pocketWindow.setFrameUsingName("HARDPLAY.pocket"),let frame=NSScreen.main?.visibleFrame { pocketWindow.setFrameOrigin(NSPoint(x:frame.maxX-360,y:frame.minY+24)) }
-        pocketWindow.setContentSize(NSSize(width:344,height:296))
+        pocketWindow.minSize=NSSize(width:344,height:320);pocketWindow.maxSize=NSSize(width:560,height:640)
+        let restored=pocketWindow.frame;let limited=PocketPanel.limitedSize(restored.size)
+        pocketWindow.setContentSize(limited)
         settingsWindow = utilityWindow(title:"Hard Play Settings",width:370,height:500)
         settingsWindow.contentView = NSHostingView(rootView:PlayerView(settingsOnly:true).padding(20).background(ThemedBackdrop()).preferredColorScheme(.dark))
         themesWindow = utilityWindow(title:"Hard Play Themes",width:410,height:760)
         themesWindow.contentView = NSHostingView(rootView:ThemeEditorView().background(ThemedBackdrop()).preferredColorScheme(.dark))
+    }
+    func showQuickEdit(_ track:Track) {
+        guard !SetupLock.shared.editsBlocked,!ControlLock.shared.isLocked else {return}
+        if quickEditModel?.busy == true {if let window=quickEditWindow {restore(window)};return}
+        quickEditModel?.close();quickEditWindow?.orderOut(nil)
+        let model=QuickEditModel(track);quickEditModel=model
+        let window=quickEditWindow ?? utilityWindow(title:"Hard Play Quick Edit",width:760,height:780)
+        window.contentMinSize=NSSize(width:620,height:650);window.contentView=NSHostingView(rootView:QuickEditView(edit:model).background(ThemedBackdrop()).preferredColorScheme(.dark))
+        quickEditWindow=window;restore(window);NSApp.activate(ignoringOtherApps:true)
+    }
+    @objc func showBackupWindow() {
+        guard !SetupLock.shared.settingsBlocked,!ControlLock.shared.isLocked else {return}
+        if backupWindow == nil {
+            backupWindow=utilityWindow(title:"Hard Play Timecode & Backup",width:500,height:690)
+            backupWindow.contentView=NSHostingView(rootView:BackupView().background(ThemedBackdrop()).preferredColorScheme(.dark))
+            backupWindow.contentMinSize=NSSize(width:440,height:540)
+            backupWindow.center()
+        }
+        restore(backupWindow);NSApp.activate(ignoringOtherApps:true)
     }
     func utilityWindow(title:String,width:CGFloat,height:CGFloat)->NSWindow {
         let window=NSWindow(contentRect:NSRect(x:200,y:100,width:width,height:height),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
@@ -857,12 +908,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     func windowWillClose(_ notification:Notification) {
         if let window = notification.object as? NSWindow {
+            if window === quickEditWindow {quickEditModel?.close()}
             if window === mappingWindow { ControlMappings.shared.mapping = false }
-            if window === miniWindow || window === playlistWindow { DispatchQueue.main.async { ControlMappings.shared.refreshStates() } }
+            if window === miniWindow || window === playlistWindow { DispatchQueue.main.async { PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() } }
         }
     }
     func showMini() { restore(miniWindow); ControlMappings.shared.refreshStates() }
-    func showPlaylistWindow() { restore(playlistWindow); ControlMappings.shared.refreshStates() }
+    func showPlaylistWindow() { restore(playlistWindow);PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() }
     @objc func toggleMini() { if miniWindow.isVisible && !miniWindow.isMiniaturized { miniWindow.orderOut(nil); ControlMappings.shared.refreshStates() } else { showMini() } }
     func restore(_ window: NSWindow) {
         if window.isMiniaturized { window.deminiaturize(nil) }
@@ -911,10 +963,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window);if window === pocketWindow { window.saveFrame(usingName:"HARDPLAY.pocket");updatePocketEdge() } else if window === miniWindow { window.saveFrame(usingName:"HARDPLAY.stage.minimal.mini") } }
     }
     func windowDidResize(_ notification:Notification) {
-        if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window) }
+        if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window);if window === pocketWindow {window.saveFrame(usingName:"HARDPLAY.pocket");updatePocketEdge()} }
     }
-    func windowDidMiniaturize(_ notification:Notification) { if let w=notification.object as? NSWindow,w === mainWindow || w === miniWindow { showPocket() };ControlMappings.shared.refreshStates() }
-    func windowDidDeminiaturize(_ notification:Notification) { ControlMappings.shared.refreshStates() }
+    func windowWillResize(_ sender:NSWindow,to frameSize:NSSize)->NSSize {
+        if sender === pocketWindow {return FloatingPlacement.shared.pocketLocked ? sender.frame.size:PocketPanel.limitedSize(frameSize)}
+        if sender === miniWindow,FloatingPlacement.shared.miniLocked {return sender.frame.size}
+        return frameSize
+    }
+    func windowDidMiniaturize(_ notification:Notification) { if let w=notification.object as? NSWindow,w === mainWindow || w === miniWindow { showPocket() };PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() }
+    func windowDidDeminiaturize(_ notification:Notification) {PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() }
     @objc func lockControls() { ControlLock.shared.lock(); showMain() }
     func updatePocketEdge() {
         let near=pocketWindow.screen.map { pocketWindow.frame.minX < $0.visibleFrame.minX } ?? false
@@ -964,7 +1021,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 }
 
-if let iconIndex = CommandLine.arguments.firstIndex(of: "--make-icon"), CommandLine.arguments.count > iconIndex + 1 {
+if CommandLine.arguments.contains("--clip-test") {
+    Task { @MainActor in do {try await runClipTests();exit(0)}catch {print("FAIL: \(error.localizedDescription)");exit(1)} };RunLoop.main.run()
+} else if CommandLine.arguments.contains("--backup-test") || CommandLine.arguments.contains("--backup-link-test") {
+    Task { @MainActor in
+        do {try await runBackupTests(network:CommandLine.arguments.contains("--backup-link-test"));exit(0)}
+        catch {print("FAIL: \(error.localizedDescription)");exit(1)}
+    }
+    RunLoop.main.run()
+} else if let iconIndex = CommandLine.arguments.firstIndex(of: "--make-icon"), CommandLine.arguments.count > iconIndex + 1 {
     let context = CGContext(data: nil, width: 1024, height: 1024, bitsPerComponent: 8, bytesPerRow: 4096, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
@@ -1346,8 +1411,10 @@ if let iconIndex = CommandLine.arguments.firstIndex(of: "--make-icon"), CommandL
     let folder=FileManager.default.temporaryDirectory.appendingPathComponent(suite)
     try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
     let file=folder.appendingPathComponent("Test.hardplay")
+    player.renameSet(to:"Evening theatre set")
     try player.writePlaylist(to:file)
     let decoded=try SavedPlaylist.read(from:file)
+    precondition(decoded.name == "Evening theatre set" && player.playlistName == decoded.name)
     precondition(decoded.tracks.count == 3 && decoded.tracks[1].occurrenceID == copy.occurrenceID)
     try player.readPlaylist(from:file)
     precondition(player.tracks.count == 3 && Set(player.tracks.map(\.id)).count == 3 && !player.playing)
@@ -1361,10 +1428,23 @@ if let iconIndex = CommandLine.arguments.firstIndex(of: "--make-icon"), CommandL
     player.undoEdit();player.rename(player.tracks[0],to:"Undo name")
     player.undoEdit();precondition(player.tracks[0].title != "Undo name")
     player.redoEdit();precondition(player.tracks[0].title == "Undo name")
+    player.renameSet(to:"Set to undo");player.undoEdit();precondition(player.playlistName == "Evening theatre set")
+    player.redoEdit();precondition(player.playlistName == "Set to undo")
     defaults.removePersistentDomain(forName:suite)
     try FileManager.default.removeItem(at:folder)
     print("PASS: select without Play, duplicate identities, independent names/fades, 3s mode, playlist round trip, remove original and restore copies")
 } else if CommandLine.arguments.contains("--self-test") {
+    let dropped=URL(fileURLWithPath:"/tmp/Set with spaces/Трек.wav")
+    precondition(AudioDropURLs.decode(dropped as NSURL) == dropped)
+    precondition(AudioDropURLs.decode(dropped.dataRepresentation as NSData) == dropped)
+    precondition(AudioDropURLs.decode(dropped.absoluteString as NSString) == dropped)
+    precondition(AudioDropURLs.decode("https://example.com/audio.wav") == nil)
+    precondition(PocketPanel.limitedSize(NSSize(width:10,height:10)) == NSSize(width:344,height:320))
+    precondition(PocketPanel.limitedSize(NSSize(width:900,height:900)) == NSSize(width:560,height:640))
+    precondition(PlaylistWindowState.shouldHideSeparate(detached:true,docked:false,visible:true,minimized:false))
+    precondition(!PlaylistWindowState.shouldHideSeparate(detached:true,docked:false,visible:true,minimized:true))
+    precondition(!PlaylistWindowState.shouldHideSeparate(detached:true,docked:true,visible:true,minimized:false))
+    precondition(!PlaylistWindowState.shouldHideSeparate(detached:false,docked:false,visible:false,minimized:false))
     let screenRect=NSRect(x:0,y:0,width:1440,height:900)
     let left=PocketPanel.constrainedFrame(NSRect(x:-500,y:1000,width:344,height:296),visible:screenRect)
     precondition(left.minX+158 == 0 && left.maxY-6 == 900)

@@ -16,7 +16,12 @@ struct MappedAction: RawRepresentable, Codable, Hashable, Identifiable {
     }
     var supportsToggle: Bool { ["playPause","mute","shuffle","repeat","stopAtEnd","fadeShort","fadeLong","mini","playlist","lockSetup"].contains(rawValue) || rawValue.hasPrefix("track:") }
     var defaultBehavior: ButtonBehavior { ["playPause","mini","mute","shuffle","repeat","stopAtEnd"].contains(rawValue) ? .toggle : .trigger }
-    var valid: Bool { Self.names.contains { $0.0 == rawValue } || (rawValue.hasPrefix("track:/") && rawValue.count <= 4096) }
+    var valid: Bool {
+        if Self.names.contains(where:{$0.0 == rawValue}) {return true}
+        guard rawValue.hasPrefix("track:"),rawValue.count<=4096 else {return false}
+        let target=String(rawValue.dropFirst(6))
+        return (target.hasPrefix("/") && !target.contains("\0")) || UUID(uuidString:target) != nil
+    }
 }
 enum ButtonBehavior: String, Codable, CaseIterable { case trigger = "Trigger", toggle = "Toggle" }
 enum MappingInput: String, Codable, CaseIterable { case keyboard = "Keyboard", midi = "MIDI" }

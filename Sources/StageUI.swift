@@ -22,17 +22,19 @@ final class ControlLock: ObservableObject {
     struct Envelope { let peaks: [Double]; let duration: Double }
     @Published private(set) var cache: [String: Envelope] = [:]
     private var pending: [String: Task<Envelope, Never>] = [:]
+    nonisolated static func key(_ track:Track)->String {track.id+"|"+track.url.path}
     func load(_ track: Track) async {
-        if cache[track.id] != nil { return }
+        let key=Self.key(track)
+        if cache[key] != nil { return }
         let job: Task<Envelope, Never>
-        if let existing = pending[track.id] { job = existing }
+        if let existing = pending[key] { job = existing }
         else {
             job = Task.detached(priority: .utility) { await Self.decode(track.url) }
-            pending[track.id] = job
+            pending[key] = job
         }
         let result = await job.value
         if cache.count >= 24, let key = cache.keys.first { cache.removeValue(forKey: key) }
-        cache[track.id] = result; pending.removeValue(forKey: track.id)
+        cache[key] = result; pending.removeValue(forKey:key)
     }
     nonisolated static func decode(_ url: URL) async -> Envelope {
         do {
@@ -118,7 +120,7 @@ struct StageDeck: View {
     let track: Track?
     let right: Bool
     let compact: Bool
-    var actualDuration: Double { (right ? player.stageRightDuration : player.stageLeftDuration) > 0 ? (right ? player.stageRightDuration : player.stageLeftDuration) : (track.flatMap { waves.cache[$0.id]?.duration } ?? 0) }
+    var actualDuration: Double { (right ? player.stageRightDuration : player.stageLeftDuration) > 0 ? (right ? player.stageRightDuration : player.stageLeftDuration) : (track.flatMap { waves.cache[Waveforms.key($0)]?.duration } ?? 0) }
     var elapsed: Double { right ? player.stageRightTime : player.stageLeftTime }
     var gain: Double { right ? player.stageRightGain : player.stageLeftGain }
     var seekable: Bool { track != nil && (right ? player.isCrossfading : !player.isCrossfading) }
@@ -135,7 +137,7 @@ struct StageDeck: View {
             HStack { Text("\(timeLabel(elapsed)) / \(timeLabel(actualDuration))"); Spacer(); Text("\(Int(gain * 100))%") }
                 .font(.system(size: 10, design: .monospaced)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.7))
             ZStack {
-                if let track, let envelope = waves.cache[track.id] {
+                if let track, let envelope = waves.cache[Waveforms.key(track)] {
                     if envelope.peaks.isEmpty { Text("Waveform unavailable").font(.system(size: 10)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.55)) }
                     else { DeckWave(peaks: envelope.peaks, fraction: actualDuration > 0 ? elapsed / actualDuration : 0, color: right ? tapeB : accent, gain: gain) }
                 } else if track != nil { ProgressView().controlSize(.small) }
@@ -150,7 +152,7 @@ struct StageDeck: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background((right ? tapeB : accent).opacity(0.065), in: RoundedRectangle(cornerRadius: appearance.theme.radius))
-        .task(id: track?.id) { if let track { await waves.load(track) } }
+        .task(id: track.map(Waveforms.key)) { if let track { await waves.load(track) } }
     }
 }
 
@@ -243,19 +245,10 @@ struct PlayerView: View {
     var menuBar = false
     @ViewBuilder var body: some View {
         Group { if settingsOnly { settings } else if playlistOnly { detachedPlaylist } else { playerBody } }
-            .overlay(RoundedRectangle(cornerRadius:14).stroke(ui.targeted ? accent.opacity(0.8):.clear,lineWidth:2).allowsHitTesting(false))
-            .onDrop(of:[UTType.fileURL],isTargeted:$ui.targeted) { providers in
-                guard !lock.isLocked,!setup.editsBlocked else { return false }
-                for provider in providers {
-                    _ = provider.loadObject(ofClass:URL.self) { url,_ in
-                        if let url { DispatchQueue.main.async { if !lock.isLocked,!setup.editsBlocked { player.add([url]) } } }
-                    }
-                }
-                return !providers.isEmpty
-            }
+            .audioFileDrop(enabled:!settingsOnly)
     }
     @ViewBuilder private var playerBody: some View {
-        if compact { stageBody(wide:false).frame(width:380) }
+        if compact { stageBody(wide:false).frame(minWidth:380) }
         else {
             GeometryReader { geometry in stageBody(wide:geometry.size.width >= 840) }
                 .frame(minWidth:520,minHeight:600)
@@ -264,6 +257,7 @@ struct PlayerView: View {
     private func stageBody(wide:Bool) -> some View {
         VStack(spacing:appearance.theme.spacing) {
             header
+            BackupStatusStrip()
             let layout = wide && !playlistWindow.detached ? AnyLayout(HStackLayout(alignment:.top,spacing:22)) : AnyLayout(VStackLayout(spacing:10))
             layout {
                 playbackPanel.frame(maxWidth:.infinity,alignment:.top)
@@ -309,10 +303,7 @@ struct PlayerView: View {
     private var playlistPanel: some View {
         VStack(spacing:10) {
                 HStack {
-                    Button { playlistWindow.toggleDrawer(fromMini:compact && !menuBar) } label: {
-                        HStack(spacing:4) { playlistTape;Image(systemName:"chevron.down").font(.system(size:9,weight:.bold)).foregroundStyle(Color(red:0.07,green:0.13,blue:0.22)) }
-                            .padding(.horizontal,8).padding(.vertical,5).background(tapeB,in:TapeEdge())
-                    }.buttonStyle(.plain).accessibilityLabel("Playlist: \(player.playlistName)").stageHint("Show or hide docked playlist")
+                    playlistTape
                     Menu { playlistActions } label: { Image(systemName:"folder").frame(width:24,height:28) }
                         .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Playlist Files")
                     Spacer()
@@ -336,8 +327,8 @@ struct PlayerView: View {
                             }
                         } label: { Label(playlistWindow.edge?.title ?? "Dock",systemImage:"rectangle.split.2x1").font(.system(size:11)).padding(6) }
                             .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Playlist Dock Side")
-                        Button { playlistWindow.detach() } label: { Label("Separate Window",systemImage:"arrow.up.right.square").font(.system(size:11)).padding(6) }
-                            .buttonStyle(PlayerControlStyle(active:playlistWindow.detached)).accessibilityLabel("Playlist Separate Window")
+                        Button { playlistWindow.toggleSeparate() } label: { Label("Separate Window",systemImage:"arrow.up.right.square").font(.system(size:11)).padding(6) }
+                            .buttonStyle(PlayerControlStyle(active:playlistWindow.separateVisible)).accessibilityLabel("Playlist Separate Window").accessibilityValue(playlistWindow.separateVisible ? "Open":"Hidden").help(playlistWindow.separateVisible ? "Hide separate playlist window":"Open separate playlist window")
                         Spacer(minLength:0)
                     }
                     if playlistWindow.detached {
@@ -349,7 +340,7 @@ struct PlayerView: View {
         }
     }
     private var playlistTape: some View {
-        TapeLabel(text: player.playlistName == "Untitled" ? String(format:"PLAYLIST / %02d",player.tracks.count) : String(player.playlistName.prefix(22)), secondary:true)
+        SetNameTape(player:player,maxWidth:compact ? 160:280,onOpen:playlistOnly ? nil:{ playlistWindow.toggleDrawer(fromMini:compact && !menuBar) })
     }
     @ViewBuilder private var playlistActions: some View {
         if !playlistOnly {
@@ -498,6 +489,7 @@ struct PlayerView: View {
             Group {
             Button { AppDelegate.shared.showThemesWindow() } label: { Label("Themes & Appearance…",systemImage:"paintpalette").font(.system(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
             Button { AppDelegate.shared.showMappings() } label: { Label("Keyboard / MIDI…",systemImage:"pianokeys").font(.system(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
+            Button { AppDelegate.shared.showBackupWindow() } label: { Label("Timecode & Backup…",systemImage:"network").font(.system(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
             Toggle("Show button hints",isOn:$hints.enabled)
             Text("Turn off for a distraction-free live set.").font(.system(size:10)).foregroundStyle(.secondary)
             Divider()
