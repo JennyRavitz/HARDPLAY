@@ -17,18 +17,18 @@ struct HardPlayArtwork: View {
     }
 }
 struct HardPlayTransport: View {
+    @ObservedObject var appearance = AppearancePreferences.shared
     let playing: Bool
     let compact: Bool
     var body: some View {
-        ZStack {
-            if let keycap=HardPlayBrand.keycap {
-                Image(nsImage:keycap).resizable().interpolation(.high).aspectRatio(contentMode:.fit)
-            } else { RoundedRectangle(cornerRadius:14).fill(Color.red.gradient) }
-            Image(systemName:playing ? "pause.fill":"play.fill")
-                .font(.system(size:compact ? 29:32,weight:.bold)).foregroundStyle(Color(red:1,green:0.96,blue:0.94))
-                .shadow(color:.black.opacity(0.7),radius:1,x:0,y:2).offset(x:playing ? 0:2)
-        }.frame(width:compact ? 84:90,height:compact ? 84:90).accessibilityHidden(true)
-            .shadow(color:.red.opacity(playing ? 0.3:0.08),radius:playing ? 7:2)
+        let size = AppearancePreferences.shared.theme.buttonSize
+        Image(systemName:playing ? "pause.fill":"play.fill")
+            .font(.system(size:size * 0.4,weight:.bold)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text))
+            .offset(x:playing ? 0:1)
+            .frame(width:size,height:size)
+            .background(accent.opacity(0.22),in:Circle())
+            .overlay(Circle().stroke(accent.opacity(0.9),lineWidth:1))
+            .accessibilityHidden(true)
     }
 }
 struct HardPlayPressStyle: ButtonStyle {

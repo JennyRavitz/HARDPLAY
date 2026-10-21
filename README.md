@@ -8,7 +8,7 @@ Hard Play is a stage audio player for macOS, with an installable offline web edi
 
 Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/latest). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
-- **macOS 14 Sonoma or newer.** The downloadable 0.14.0 build is for **Apple Silicon (arm64)**. Intel Macs can build the source locally; this release is not a universal binary.
+- **macOS 14 Sonoma or newer.** The downloadable 0.15.0 build is for **Apple Silicon (arm64)**. Intel Macs can build the source locally; this release is not a universal binary.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.
 - Native playback of local audio needs no network connection. Cloud-only files must first be downloaded to the Mac.
 - The app displays an ordinary Dock icon and also provides a menu bar player.
@@ -84,4 +84,14 @@ Personal playlists, audio, generated apps and local credentials are excluded fro
 
 ## 0.14.0 identity
 
-Front-facing red Solo-key app icon with Hard / Play on two lines. The main transport uses a red physical key with a large white Play triangle or Pause bars. The native menu bar uses a simplified red Hard / Play key and a separate playback-state badge. The remaining interface keeps its blue/white stage palette. The generated PNG masters and prompts live in `assets/branding/`.
+Front-facing red Solo-key app icon with Hard / Play on two lines. The app artwork keeps the red physical key. Version 0.15 restores the original round blue Play/Pause transport, adjustable in Themes. The native menu bar uses a simplified red Hard / Play key and a separate playback-state badge. The remaining interface keeps its blue/white stage palette. The generated PNG masters and prompts live in `assets/branding/`.
+
+## 0.15 — themes, pocket player, Undo
+
+Settings opens independently of the player; Themes & Appearance opens another window for live preview. Six presets: Stage, Flightcase, Cables, Cinema, Theatre and Minimal. Adjust accent, background, text, playlist tape, opacity, Play button size, track text scale, spacing, corner radius and scenic texture. Preferences save locally.
+
+Minimize the main/mini window to reveal **Hard Play Pocket**, a draggable floating companion with track, time, Play/Pause, previous/next and Restore. Closing the player window hides it and keeps the app/audio running; Command-Q explicitly quits. Settings and Themes have their own standard Mac minimize controls.
+
+**Undo Playlist Edit** (↶ / Command-Z) and **Redo** (Shift-Command-Z) retain 30 queue edits during this app session: add, duplicate, rename, remove and fades. Undo does not restart live playback; restoring a removed current item loads it paused. The setup lock protects these actions. File saves and transport actions are not reversed.
+
+Hover the seek bar to inspect the time without seeking. **My Set** toggles an attached playlist drawer without hiding the player; choose Below / Right / Left / Above or Separate Window. Docked native windows follow their owner, within the available display area.

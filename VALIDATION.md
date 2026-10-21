@@ -153,3 +153,13 @@ Distribution: local self/queue/button-mode/mapping/playlist checks passed; code 
 Generated front-facing Hard / Play icon is bundled in the Mac app, .icns, web manifest icons and header. The main transport uses a blank red keycap with an actual centered Play/Pause glyph, never a static label pretending to be playback state. Native UI and web preview were exercised with an isolated silent WAV: Play changed to Pause and back; selection, seeking and volume retain their existing controls. The native menu-bar drawing uses a simplified red Hard / Play key with a separate state badge and adaptive label-color state symbols. Installed browser icon refresh and appearance on other Macs remain platform-dependent.
 
 Release build self/queue/button-mode checks and 21 web tests passed; Worker artifact validation passed. New button artwork is listed in the offline shell cache. This update does not claim that the previously failing GitHub Actions startup is repaired.
+
+## 0.15.0 — live themes, drawer, hover time, pocket companion and edit history
+
+Native release build/self/queue checks pass. UI verified independent Settings and Themes, Theatre selection, opacity/colors, Play/text-size slider changes, live theme on the main player, and round Play/Pause. Settings do not hide the main player. Minimize reveals the separate Pocket panel; Command-1 restores the main player. Removing a silent-fixture queue item then Command-Z restored it paused with 0:12 duration. Native queue tests also cover Undo/Redo remove and rename.
+
+Web UI verified all six preset controls, simultaneous main/settings/themes panels, live Theatre accent, 78px Play button, 120% text, persisted settings after reload, and the modeless-panel fallback used by embedded browsers. Browser popup detachment is implemented but independent browser-popup interaction was unavailable in IAB. Web tests cover invalid stored appearance bounds and queue history copy/redo behavior, alongside existing audio/model tests.
+
+Web UI imported a 12-second silent test fixture, duplicated it, removed the copy, undid removal, verified both items Saved Offline and played the restored copy. Minimize kept playback in the pocket widget with the track/time and restore control. Native companion is an actual floating panel; the web companion remains inside the browser page.
+
+Earlier in the same update, web UI verified seek tooltip 0:00/0:06/0:12 without changing the seek value, all four drawer sides, My Set show/hide and detach/dock. Native hover and four-side drawer source compiled; native pointer-hover and multi-monitor anchoring have not been fully exercised. GitHub Actions startup failure from the prior release is not claimed repaired.

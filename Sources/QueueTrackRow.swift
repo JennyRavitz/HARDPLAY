@@ -7,6 +7,7 @@ final class TrackRowEdit: ObservableObject {
 }
 
 struct QueueTrackRow: View {
+    @ObservedObject var appearance = AppearancePreferences.shared
     @ObservedObject var player: Player
     let track: Track
     @ObservedObject private var setup = SetupLock.shared
@@ -31,7 +32,7 @@ struct QueueTrackRow: View {
             if row.editing {
                 Text(player.queueNumber(track)).font(.custom("MarkerFelt-Thin",size:19)).frame(width:26)
                 TextField("Track name",text:$row.draft)
-                    .font(.system(size:15,weight:.medium)).textFieldStyle(.plain)
+                    .font(.system(size:15 * AppearancePreferences.shared.theme.textScale,weight:.medium)).textFieldStyle(.plain)
                     .padding(.horizontal,5).padding(.vertical,5)
                     .background(accent.opacity(0.1),in:RoundedRectangle(cornerRadius:5))
                     .overlay(RoundedRectangle(cornerRadius:5).stroke(accent.opacity(0.65),lineWidth:1))
@@ -43,7 +44,7 @@ struct QueueTrackRow: View {
                 Button { player.selectInQueue(track) } label: {
                     HStack(spacing:10) {
                         Text(player.queueNumber(track)).font(.custom("MarkerFelt-Thin",size:19)).frame(width:26)
-                        Text(track.title).font(.system(size:15,weight:.medium)).lineLimit(2).multilineTextAlignment(.leading)
+                        Text(track.title).font(.system(size:15 * AppearancePreferences.shared.theme.textScale,weight:.medium)).lineLimit(2).multilineTextAlignment(.leading)
                         Spacer(minLength:0)
                     }.frame(minHeight:36).contentShape(Rectangle())
                 }.buttonStyle(.plain).disabled(setup.selectionBlocked).help("Select · " + track.title).accessibilityLabel("Select Track: \(track.title)")

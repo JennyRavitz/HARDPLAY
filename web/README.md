@@ -17,7 +17,7 @@ Install/add to Dock using the browser's own app-install menu when available. The
 - Off / Short 3 seconds / Long 6 seconds per outgoing track; **Apply to All** copies the current fade. Both tracks and their gains are shown during overlap.
 - Restart, Resume, master volume, end-of-track stop and optional stop-before-end, shuffle/repeat.
 - Pencil renames inline. Icons keep playlist rows compact.
-- **My Set** opens Save/Open Playlist and Detach Playlist. The separate queue window shares the same player; its link button attaches it again. Keep the original app window open.
+- **My Set** toggles the docked playlist; the folder button opens Save/Open Playlist. The separate queue window shares the same player; its link button attaches it again. Keep the original app window open.
 - Mini Player uses Document Picture-in-Picture where supported, with a compact-view fallback. Popup blockers may need allowing a playlist window. Web windows cannot reproduce every native Mac window behavior.
 - Setup protection locks selected groups. The top lock protects all actions while music continues; drag the handle upwards or hold Space/Enter for about one second to unlock.
 - Settings → Keyboard / MIDI, or Shift+M. Enable Map, choose an action/player button, then send a key or MIDI signal. Trigger runs an action once; Toggle switches its supported state. Save/Open control sets. MIDI CC controls continuous volume. MIDI support depends on browser/device permissions. Keyboard shortcuts require focus; they are not global macOS shortcuts.
@@ -62,4 +62,14 @@ Drop files onto either the main player or the detached playlist window. Both add
 
 **Install on Mac** in the footer opens installation instructions and offers the browser’s install prompt when available. Safari on macOS 14+ supports File → Add to Dock. Open the installed app online once and cache every audio file before relying on offline use. The standalone window and icon are supplied by the browser; installation does not grant native menu bar or global keyboard access.
 
-The red Solo-style transport shows a centered Play triangle or Pause bars. The Hard / Play wordmark remains on the app icon and header. Both artwork files are included in the service worker shell cache.
+The original round Play/Pause transport is restored, with configurable color and size. The Hard / Play wordmark remains on the app icon and header. Both artwork files are included in the service worker shell cache.
+
+## Appearance and compact companion (0.15)
+
+Settings and Themes & Appearance are independent modeless panels, so the main player remains usable. The ↗ button detaches each panel into a browser window when popups are allowed. Choose Stage, Flightcase, Cables, Cinema, Theatre or Minimal; adjust colors, opacity, Play size, track text, spacing, radius and textures with a live preview. Preferences persist on this browser/device and work offline.
+
+The − player button folds it into a draggable **Pocket Player** inside the page. Restore / OPEN returns the same player without interrupting audio. Browser tabs cannot turn into an OS desktop companion or stay running after their host browser quits: use the native Mac app for a floating desktop widget. Close/minimize of a settings panel affects that panel only. Keep the host page running for audio.
+
+Undo Playlist Edit (↶ / Command-Z or Ctrl-Z) and Redo (Shift-Command-Z) retain 30 session edits. Queue edits and playback-policy settings can be restored; deletion Undo restores cached audio for the item. History resets when reloading. Transport and disk exports are not undone. Appearance can be reset to Stage independently.
+
+My Set toggles a playlist drawer, with Below / Right / Left / Above placement and explicit Separate Window. Narrow screens stack the panels. Hover the seek bar for time inspection; only clicking/dragging seeks.
