@@ -173,3 +173,11 @@ Native: dedicated AppKit mouse/keyboard hold view avoids competing SwiftUI Butto
 Cleanup: closed old localhost preview tabs and Drawer QA, stopped owned preview servers 4190–4194. One preview server remains temporarily for verification. An older real HARDPLAY process was discovered at the same build path; the locked Mac prevented its normal UI quit/relaunch. Do not confuse its old runtime with the rebuilt 0.15.1 files.
 
 Web update entrypoint: added `/app/` aliases for shell assets and cloud proxy, preserving the origin and IndexedDB. This avoids the old root shell's cache hits without clearing user audio. Artifact validation checks root, `/app/`, script/service-worker routes and invalid-cloud-request handling.
+
+## 0.15.2 — desktop placement and plain HARD PLAY heading
+
+Restarted the original native process into the current build, keeping a single app instance. Native UI verified Lock Widget Controls disables play/skip while audio continues; a 1.2-second hold restored Available and stayed unlocked after release. The heading shows HARD PLAY with no slash.
+
+Added a native header drag view with first-mouse acceptance and mouse-event screen coordinates, plus screen-edge constraints based on the visible player face rather than its transparent side-panel margin. Self-test covers left/top/right/bottom clamp geometry. Native drag UI changed the saved frame from 1440,18 to -91,681; position lock prevented a subsequent drag and the same frame was restored on launch. The left-edge Locks overlay stayed reachable. A final refinement reads event CG coordinates to avoid stale global-cursor reads during forwarded input. Subsequent user interaction took over the main window, so further synthetic dragging was stopped; multi-display dragging has not been exhaustively tested.
+
+The web heading was updated and built/validated without changing its existing in-page drag behavior. Native remains the desktop floating player. No new QA app variants or local preview servers were launched for this update.

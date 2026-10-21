@@ -81,3 +81,5 @@ Tap the left bezel beside the display to open/close the side panel. Position and
 ### Updating an older offline installation
 
 The `/app/` entrypoint serves the same player with its own shell URL paths. Use it when an older offline service worker keeps showing the previous interface. Audio and playlists remain in the same origin's IndexedDB; no site data needs to be cleared. Relative shell assets and cloud download routes work under either entrypoint.
+
+The Pocket Player heading reads **HARD PLAY**, with no separator. Drag the top grip to move it within the browser viewport; the native Mac version floats on the desktop.

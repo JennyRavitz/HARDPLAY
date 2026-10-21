@@ -13,6 +13,13 @@ struct PocketPlayerView: View {
     @ObservedObject var appearance = AppearancePreferences.shared
     var body: some View {
         HStack(spacing:0) {
+            lockPanel
+                .offset(x:ui.drawerOpen ? 0:152).opacity(ui.drawerOpen && !placement.pocketNearLeftEdge ? 1:0).allowsHitTesting(ui.drawerOpen && !placement.pocketNearLeftEdge).accessibilityHidden(!ui.drawerOpen || placement.pocketNearLeftEdge)
+                .frame(width:152,height:220).clipped().padding(.bottom,20)
+            pocketBody
+        }.frame(width:344)
+    }
+    private var lockPanel: some View {
             VStack(alignment:.leading,spacing:9) {
                 Text("LOCKS").font(.system(size:8,weight:.heavy)).tracking(1).foregroundStyle(.white.opacity(0.6))
                 Button { placement.pocketLocked.toggle() } label: {
@@ -25,10 +32,6 @@ struct PocketPlayerView: View {
                 }
                 Text(lock.isLocked ? "Music continues. Hold 1 sec to unlock.":"Play & skip are available.").font(.system(size:9)).foregroundStyle(.white.opacity(0.65)).fixedSize(horizontal:false,vertical:true)
             }.padding(10).frame(width:148).background(Color(red:0.07,green:0.11,blue:0.17).opacity(0.98),in:RoundedRectangle(cornerRadius:12))
-                .offset(x:ui.drawerOpen ? 0:152).opacity(ui.drawerOpen ? 1:0).allowsHitTesting(ui.drawerOpen).accessibilityHidden(!ui.drawerOpen)
-                .frame(width:152,height:220).clipped().padding(.bottom,20)
-            pocketBody
-        }.frame(width:344)
     }
     private func lockRow(_ title:String,state:String,symbol:String,locked:Bool)->some View {
         HStack(spacing:7) {
@@ -41,7 +44,7 @@ struct PocketPlayerView: View {
     private var pocketBody: some View {
         VStack(spacing:10) {
             HStack {
-                Text("HARD / PLAY").font(.system(size:8,weight:.heavy,design:.rounded)).tracking(1)
+                PocketDragHandle().frame(width:116,height:18).help(placement.pocketLocked ? "Position fixed · unlock in the side panel":"Drag here to move the player anywhere")
                 Spacer()
                 Button { AppDelegate.shared.showMain();AppDelegate.shared.pocketWindow.orderOut(nil) } label: { Image(systemName:"arrow.up.left.and.arrow.down.right").font(.system(size:10)) }.buttonStyle(.plain).accessibilityLabel("Restore Player")
             }.foregroundStyle(.white.opacity(0.7))
@@ -70,6 +73,9 @@ struct PocketPlayerView: View {
             }.frame(width:116,height:116).foregroundStyle(.white).disabled(lock.isLocked)
         }.padding(14).frame(width:180).background(LinearGradient(colors:[Color(red:0.22,green:0.26,blue:0.32),Color(red:0.09,green:0.12,blue:0.17)],startPoint:.topLeading,endPoint:.bottomTrailing),in:RoundedRectangle(cornerRadius:25))
             .overlay(RoundedRectangle(cornerRadius:25).stroke(.white.opacity(0.25),lineWidth:1))
+            .overlay(alignment:.topLeading) {
+                if ui.drawerOpen && placement.pocketNearLeftEdge { lockPanel.offset(x:20,y:32) }
+            }
             .overlay(alignment:.topLeading) {
                 Button { withAnimation(.easeInOut(duration:0.2)) { ui.drawerOpen.toggle() } } label: {
                     Color.clear.frame(width:16,height:126).contentShape(Rectangle())

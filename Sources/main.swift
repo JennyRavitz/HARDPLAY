@@ -793,7 +793,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mappingWindow.appearance = NSAppearance(named:.darkAqua)
         mappingWindow.contentView = NSHostingView(rootView:MappingView().background(ThemedBackdrop()))
         mappingWindow.setFrameAutosaveName("HARDPLAY.mappings")
-        pocketWindow = FloatingPanel(contentRect:NSRect(x:100,y:100,width:344,height:296),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+        pocketWindow = PocketPanel(contentRect:NSRect(x:100,y:100,width:344,height:296),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
         pocketWindow.isOpaque=false;pocketWindow.backgroundColor = .clear;pocketWindow.level = .floating
         pocketWindow.title="Hard Play Pocket";pocketWindow.hasShadow=true;pocketWindow.isMovableByWindowBackground=true;pocketWindow.hidesOnDeactivate=false;pocketWindow.isReleasedWhenClosed=false
         pocketWindow.collectionBehavior=[.canJoinAllSpaces,.fullScreenAuxiliary]
@@ -908,7 +908,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         status.button?.setAccessibilityLabel("Hard Play — \(badge.title)")
     }
     func windowDidMove(_ notification:Notification) {
-        if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window);if window === pocketWindow { window.saveFrame(usingName:"HARDPLAY.pocket") } else if window === miniWindow { window.saveFrame(usingName:"HARDPLAY.stage.minimal.mini") } }
+        if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window);if window === pocketWindow { window.saveFrame(usingName:"HARDPLAY.pocket");updatePocketEdge() } else if window === miniWindow { window.saveFrame(usingName:"HARDPLAY.stage.minimal.mini") } }
     }
     func windowDidResize(_ notification:Notification) {
         if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window) }
@@ -916,10 +916,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func windowDidMiniaturize(_ notification:Notification) { if let w=notification.object as? NSWindow,w === mainWindow || w === miniWindow { showPocket() };ControlMappings.shared.refreshStates() }
     func windowDidDeminiaturize(_ notification:Notification) { ControlMappings.shared.refreshStates() }
     @objc func lockControls() { ControlLock.shared.lock(); showMain() }
+    func updatePocketEdge() {
+        let near=pocketWindow.screen.map { pocketWindow.frame.minX < $0.visibleFrame.minX } ?? false
+        if FloatingPlacement.shared.pocketNearLeftEdge != near { FloatingPlacement.shared.pocketNearLeftEdge=near }
+    }
     func showPocket() {
         // Preserve the user's position, including when the widget is hidden and restored.
         if !NSScreen.screens.contains(where:{$0.visibleFrame.contains(pocketWindow.frame)}),let screen=NSScreen.main { pocketWindow.setFrame(pocketWindow.constrainFrameRect(pocketWindow.frame,to:screen),display:false) }
-        pocketWindow.orderFront(nil)
+        updatePocketEdge();pocketWindow.orderFront(nil)
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard !ControlLock.shared.isLocked else { return false }
@@ -1361,6 +1365,11 @@ if let iconIndex = CommandLine.arguments.firstIndex(of: "--make-icon"), CommandL
     try FileManager.default.removeItem(at:folder)
     print("PASS: select without Play, duplicate identities, independent names/fades, 3s mode, playlist round trip, remove original and restore copies")
 } else if CommandLine.arguments.contains("--self-test") {
+    let screenRect=NSRect(x:0,y:0,width:1440,height:900)
+    let left=PocketPanel.constrainedFrame(NSRect(x:-500,y:1000,width:344,height:296),visible:screenRect)
+    precondition(left.minX+158 == 0 && left.maxY-6 == 900)
+    let right=PocketPanel.constrainedFrame(NSRect(x:2000,y:-500,width:344,height:296),visible:screenRect)
+    precondition(right.maxX-6 == 1440 && right.minY+6 == 0)
     let track = Track(url: URL(fileURLWithPath: "/tmp/Test Track.flac"))
     precondition(track.title == "Test Track" && track.format == "FLAC")
     precondition(timeLabel(125) == "2:05" && timeLabel(.nan) == "0:00")
