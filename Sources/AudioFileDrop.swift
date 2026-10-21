@@ -38,8 +38,8 @@ struct AudioFileDropArea:ViewModifier {
     private var allowed:Bool { enabled && !setup.editsBlocked && !lock.isLocked }
     func body(content:Content)->some View {
         content.contentShape(Rectangle())
-            .overlay { if feedback.targeted && allowed { RoundedRectangle(cornerRadius:14).fill(accent.opacity(0.12)).overlay(RoundedRectangle(cornerRadius:14).stroke(accent,lineWidth:2)).overlay { Label("Drop audio here",systemImage:"plus.circle.fill").font(.system(size:13,weight:.semibold)).padding(12).background(.ultraThinMaterial,in:Capsule()) }.allowsHitTesting(false) } }
-            .overlay(alignment:.bottom) { if let message=feedback.message { Text(message).font(.system(size:11,weight:.medium)).multilineTextAlignment(.center).padding(9).background(.ultraThinMaterial,in:RoundedRectangle(cornerRadius:9)).padding(8).allowsHitTesting(false) } }
+            .overlay { if feedback.targeted && allowed { RoundedRectangle(cornerRadius:14).fill(accent.opacity(0.12)).overlay(RoundedRectangle(cornerRadius:14).stroke(accent,lineWidth:2)).overlay { MarkerLabel("Drop audio here",systemImage:"plus.circle.fill").font(.stage(size:13,weight:.semibold)).padding(12).background(.ultraThinMaterial,in:Capsule()) }.allowsHitTesting(false) } }
+            .overlay(alignment:.bottom) { if let message=feedback.message { Text(message).font(.stage(size:11,weight:.medium)).multilineTextAlignment(.center).padding(9).background(.ultraThinMaterial,in:RoundedRectangle(cornerRadius:9)).padding(8).allowsHitTesting(false) } }
             .onDrop(of:[UTType.fileURL],isTargeted:$feedback.targeted) { providers in
                 guard allowed else { return false }
                 Task {

@@ -57,3 +57,27 @@ dialog{background:var(--bg)}.theme-presets{display:grid;grid-template-columns:1f
 .pocket-player .pocket-lock-tab{left:0;top:30px;width:16px;height:136px;border:0;border-radius:0;padding:0;background:transparent;z-index:4;touch-action:manipulation}.pocket-player .pocket-lock-tab:hover{background:linear-gradient(90deg,#93c5f420,transparent)}.pocket-player .pocket-lock-tab:focus-visible{outline:1px solid var(--blue);outline-offset:-2px}.pocket-lock-drawer{top:38px}#pocket-lock-summary{font-size:6px;letter-spacing:.1px;opacity:.85}.pocket-player.controls-locked .pocket-lock-tab{border:0}
 
 .tape{max-width:min(320px,60vw);white-space:nowrap}.set-name-edit{display:inline-flex;transform:rotate(-.5deg);padding:6px 12px;min-width:90px;max-width:min(320px,65vw)}.set-name-edit input{border:0!important;background:transparent!important;color:#101c34!important;padding:0!important;outline:0!important;width:100%;font:inherit;min-height:21px;box-shadow:none}.pocket-player.drop-target{outline:2px solid var(--blue);outline-offset:3px}body.drop-target{outline:0}body.drop-target::after{content:"Drop audio to add to this set";position:fixed;left:50%;top:15px;transform:translateX(-50%);z-index:1000;padding:12px 18px;border:1px solid var(--blue);background:#102033f5;color:white;border-radius:12px;font-size:12px;pointer-events:none}
+
+/* Marker tape identity: bundled offline font, calm console tape, hand-inked controls. */
+@font-face{font-family:HardplayMarker;src:url('./hardplay-marker.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+:root{--marker:HardplayMarker,'Marker Felt','Chalkboard SE',sans-serif;--tape-ink:#171b20}
+html[data-theme='tape black']{--tape-ink:#f3efe6}
+body,button,input,select,textarea,output,small,strong,h1,h2,h3,span,p,label,.marker,.track-number,.clock,.brand-words,.tape,.track-fade select,.set-summary,.track-time,#track-play-time,.policy-bar button{font-family:var(--marker)!important;font-weight:400!important;font-synthesis:none}
+body{background-color:#171c23;background-image:repeating-linear-gradient(0deg,#ffffff03 0,#ffffff03 1px,transparent 1px,transparent 5px),repeating-linear-gradient(90deg,#00000009 0,#00000009 1px,transparent 1px,transparent 5px)}
+.brand{gap:7px}.brand-words,.tape{color:var(--tape-ink);background:var(--tape);clip-path:polygon(2% 0,98% 1%,100% 18%,98% 35%,100% 57%,98% 78%,99% 99%,1% 100%,2% 80%,0 60%,2% 37%,0 15%);text-shadow:none;letter-spacing:0}
+.brand-words{font-size:18px;line-height:1.3;padding:4px 9px;white-space:nowrap;background-image:repeating-linear-gradient(0deg,#ffffff10 0,#ffffff10 1px,transparent 1px,transparent 4px)}
+.player{box-shadow:0 15px 45px #0004;border-color:#b6c2cf40;background-image:repeating-linear-gradient(90deg,#ffffff02 0,#ffffff02 1px,transparent 1px,transparent 5px)}
+button:not(.play){border-radius:3px;background-color:#10141a36;box-shadow:inset 0 0 0 1px #ffffff08}
+button:not(.play)[aria-pressed='true'],.policy-bar button.active,.theme-presets button[aria-pressed='true']{background:var(--tape);color:var(--tape-ink);border-color:#d8e4ef66}
+svg{stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.play,.compact .play,.player.compact .play{width:var(--button-size);height:var(--button-size);min-width:var(--button-size);border:2px solid var(--blue);border-radius:47% 51% 49% 48%;background:#a9c7e51a;filter:none!important;box-shadow:inset 0 0 0 1px #ffffff18}
+.play #play-icon{position:static;width:44%;height:44%;background:none;border:0;border-radius:0}.play #play-icon svg{width:100%;height:100%}.play:hover{background:#a9c7e52a}
+.deck h2{font-size:calc(17px * var(--text-scale));font-weight:400}.track-title{font-size:calc(16px * var(--text-scale));line-height:1.4}.deck{border:1px solid #bacbdd24;border-radius:5px;background-image:repeating-linear-gradient(0deg,#ffffff03 0,#ffffff03 1px,transparent 1px,transparent 4px)}
+.theme-wordmarks{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:16px 0}.theme-wordmarks .stacked{font-size:19px;line-height:.95;padding:8px 15px}.track-title-input,.set-name-input{font-family:var(--marker)!important}.track-icon{background:transparent!important;box-shadow:none!important}
+body.hints [data-hint]:hover::after{font-family:var(--marker)}
+@media(max-width:420px){.brand-words{font-size:14px}.brand img{width:25px;height:25px}.brand{gap:4px}.policy-bar svg{width:11px;height:11px}}
+button.tape{background-color:var(--tape)!important;color:var(--tape-ink)!important;background-image:repeating-linear-gradient(0deg,#ffffff10 0,#ffffff10 1px,transparent 1px,transparent 4px)}
+.play,.compact .play,.player.compact .play{display:grid;place-items:center;justify-items:center;align-items:center}
+.play #play-icon{inset:auto;margin:0;transform:none}
+.play #play-icon{position:absolute;left:50%;top:50%;right:auto;bottom:auto;width:56%;height:56%;transform:translate(-50%,-50%);display:block;margin:0}
+.play #play-icon svg,.compact .play #play-icon svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2.4}

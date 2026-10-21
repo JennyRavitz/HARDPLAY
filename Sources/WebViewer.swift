@@ -106,6 +106,9 @@ final class WebViewer:ObservableObject {
         case "/":return Self.response(200,ViewerPage.html,type:"text/html; charset=utf-8")
         case "/viewer.css":return Self.response(200,ViewerPage.css,type:"text/css; charset=utf-8")
         case "/viewer.js":return Self.response(200,ViewerPage.js,type:"text/javascript; charset=utf-8")
+        case "/viewer.ttf":
+            guard let url=Bundle.main.url(forResource:"BalsamiqSans-Bold",withExtension:"ttf"),let data=try? Data(contentsOf:url) else {return Self.response(404,"Not found")}
+            return Self.response(200,data:data,type:"font/ttf")
         case "/api/state":
             guard running,!token.isEmpty,headers["authorization"] == "Bearer "+token else {return Self.response(401,"Link expired or invalid")}
             let now=ProcessInfo.processInfo.systemUptime

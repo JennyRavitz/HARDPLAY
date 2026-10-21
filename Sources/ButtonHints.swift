@@ -34,9 +34,9 @@ private struct HintBar:View {
     @ObservedObject private var lock=ControlLock.shared
     var body:some View {
         HStack(spacing:10) {
-            Text("HINT").font(.system(size:9,weight:.bold,design:.monospaced)).tracking(1).foregroundStyle(Color(red:0.65,green:0.82,blue:1))
+            Text("HINT").font(.stage(size:9,weight:.bold,design:.monospaced)).tracking(1).foregroundStyle(Color(red:0.65,green:0.82,blue:1))
             Text(lock.isLocked ? "Controls locked" : (channel.text ?? "Hover over a control to see its function."))
-                .font(.system(size:11,weight:.medium)).foregroundStyle(.white.opacity(channel.text == nil ? 0.62:0.95)).lineLimit(2).frame(maxWidth:.infinity,alignment:.leading)
+                .font(.stage(size:11,weight:.medium)).foregroundStyle(.white.opacity(channel.text == nil ? 0.62:0.95)).lineLimit(2).frame(maxWidth:.infinity,alignment:.leading)
         }.padding(.horizontal,12).frame(height:44)
             .background(Color(red:0.035,green:0.07,blue:0.13).opacity(0.65),in:RoundedRectangle(cornerRadius:9))
             .overlay(RoundedRectangle(cornerRadius:9).stroke(.white.opacity(0.1),lineWidth:1))

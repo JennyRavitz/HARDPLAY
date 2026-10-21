@@ -65,7 +65,7 @@ final class Player: ObservableObject {
     private let defaults: UserDefaults
     private var positions: [String: Double] = [:]
     private var endBoundary: Any?
-    private var isLoading = false
+    private(set) var isLoading = false
     private var lastCheckpoint: Double = -1
     private var engine = AVPlayer()
     private var observer: Any?
@@ -206,7 +206,8 @@ final class Player: ObservableObject {
     var stageRight: Track? { isCrossfading ? current : nextTrack }
     var stageLeftTime: Double { isCrossfading ? (outgoing?.currentTime().seconds ?? 0) : elapsed }
     var stageLeftDuration: Double { isCrossfading ? outgoingDuration : duration }
-    var stageRightTime: Double { isCrossfading ? elapsed : 0 }
+    @Published private(set) var waveformCues:[String:Double] = [:]
+    var stageRightTime: Double { isCrossfading ? elapsed : (nextTrack.flatMap { waveformCues[$0.id] } ?? prepared?.position ?? 0) }
     var stageRightDuration: Double { isCrossfading ? duration : (prepared?.duration ?? 0) }
     var stageLeftGain: Double { current == nil ? 0 : (isCrossfading ? 1 - fadeProgress : 1) }
     var stageRightGain: Double { isCrossfading ? fadeProgress : 0 }
@@ -281,7 +282,8 @@ final class Player: ObservableObject {
     }
     private func prepareCrossfade(to track: Track, manual: Bool) {
         guard let source = currentID else { return }
-        let requestedPosition = manual && startMode == .resume ? positions[track.id, default: 0] : 0
+        let cue = waveformCues[track.id]
+        let requestedPosition = cue ?? (manual && startMode == .resume ? positions[track.id, default: 0] : 0)
         let token = UUID(); preparationID = token; manualPreparation = manual
         preparationTask = Task { @MainActor [weak self] in
             do {
@@ -298,7 +300,7 @@ final class Player: ObservableObject {
                     try await Task.sleep(nanoseconds: 50_000_000)
                 }
                 guard incoming.currentItem?.status == .readyToPlay else { throw CocoaError(.fileReadUnknown) }
-                let position = requestedPosition < seconds - 0.1 ? max(0, requestedPosition) : 0
+                let position = cue != nil ? min(max(0,requestedPosition),max(0,seconds-1/600)) : (requestedPosition < seconds - 0.1 ? max(0, requestedPosition) : 0)
                 await incoming.seek(to: CMTime(seconds: position, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
                 guard !Task.isCancelled, let self, self.preparationID == token, self.currentID == source else { incoming.pause(); return }
                 self.preparationTask = nil
@@ -306,7 +308,7 @@ final class Player: ObservableObject {
                 self.prepared = ready
                 if manual { self.startCrossfade(ready) }
                 else if !self.playing && self.elapsed >= self.duration - 0.1 {
-                    self.prepared = nil; self.load(track, position: 0)
+                    self.prepared = nil; self.load(track, position: ready.position, precisePosition: true)
                 } else { self.checkAutomaticCrossfade() }
             } catch {
                 guard !Task.isCancelled, let self, self.preparationID == token, self.currentID == source else { return }
@@ -320,12 +322,13 @@ final class Player: ObservableObject {
     private func startCrossfade(_ ready: (track: Track, player: AVPlayer, duration: Double, position: Double)) {
         guard let current else { return }
         let length = min(fadeMode(after: current).seconds, max(0, duration - elapsed), (ready.duration - ready.position) / 2)
-        guard length > 0.05 else { prepared = nil; load(ready.track, position: 0); return }
+        guard length > 0.05 else { prepared = nil; load(ready.track, position: ready.position, precisePosition: true); return }
         let shouldPlay = playing
         rememberPosition(); clearEndBoundary(); failureObservation = nil
         outgoingTrack = current; outgoingDuration = duration; nextChoice = nil
         outgoing = engine; engine = ready.player; prepared = nil; preparationID = nil; manualPreparation = false
         if selectedID == nil || selectedID == currentID { selectedID=ready.track.id }
+        waveformCues.removeValue(forKey:ready.track.id)
         currentID = ready.track.id; duration = ready.duration; elapsed = ready.position; stoppedAtBoundary = false; lastCheckpoint = -1; error = nil
         fadeLength = length; fadeStart = ready.position; fadeProgress = 0; isCrossfading = true
         installTimeObserver(); configureEndBoundary(); watchFailure(of: engine.currentItem!); applyMixVolumes()
@@ -433,7 +436,7 @@ final class Player: ObservableObject {
         pause(); loadingTask?.cancel(); failureObservation = nil; cancelCrossfade(); clearEndBoundary()
         engine.replaceCurrentItem(with:nil); isLoading = false
         restoring = true
-        tracks = resolved; selectedID=file.highlightedIndex.flatMap { resolved.indices.contains($0) ? resolved[$0].id:nil }; currentID = nil; elapsed = 0; duration = 0; positions = savedPositions; bookmarks = savedBookmarks; transitionModes = modes
+        waveformCues.removeAll(); tracks = resolved; selectedID=file.highlightedIndex.flatMap { resolved.indices.contains($0) ? resolved[$0].id:nil }; currentID = nil; elapsed = 0; duration = 0; positions = savedPositions; bookmarks = savedBookmarks; transitionModes = modes
         startMode = file.options.startMode; endMode = file.options.endMode; stopBeforeEnd = file.options.stopBeforeEnd
         shuffle = file.options.shuffle; repeatAll = file.options.repeatAll
         notePlaylist(url);playlistName=file.name.isEmpty ? "My Set":String(file.name.prefix(100)); restoring = false
@@ -492,10 +495,12 @@ final class Player: ObservableObject {
     var crossfadeDiagnostics: (outgoingRate: Float, incomingRate: Float, outgoingVolume: Float, incomingVolume: Float, length: Double) {
         (outgoing?.rate ?? 0, engine.rate, outgoing?.volume ?? 0, engine.volume, fadeLength)
     }
-    func load(_ track: Track, autoplay: Bool = true, position: Double? = nil) {
+    func load(_ track: Track, autoplay: Bool = true, position: Double? = nil, precisePosition:Bool = false) {
         rememberPosition()
         cancelCrossfade()
-        let startOffset = position ?? (startMode == .resume ? positions[track.id, default: 0] : 0)
+        let cue = waveformCues.removeValue(forKey:track.id)
+        let exact = precisePosition || cue != nil
+        let startOffset = position ?? cue ?? (startMode == .resume ? positions[track.id, default: 0] : 0)
         loadingTask?.cancel(); failureObservation = nil
         clearEndBoundary(); isLoading = true; stoppedAtBoundary = false; lastCheckpoint = -1
         if selectedID == nil || selectedID == currentID { selectedID=track.id }
@@ -526,7 +531,7 @@ final class Player: ObservableObject {
                     self.nowPlaying(); self.persist(); return
                 }
                 self.duration = seconds
-                let target = startOffset < self.duration - 0.1 ? max(0, startOffset) : 0
+                let target = exact ? min(max(0,startOffset),max(0,self.duration-1/600)) : (startOffset < self.duration - 0.1 ? max(0, startOffset) : 0)
                 await self.engine.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
                 guard !Task.isCancelled else { return }
                 self.isLoading = false; self.elapsed = target
@@ -573,6 +578,26 @@ final class Player: ObservableObject {
         guard let track = current else { return }
         load(track, autoplay: true, position: positions[track.id] ?? elapsed)
     }
+    /// NEXT gestures set a one-shot cue; only an explicit double-click starts that deck.
+    func waveformAction(_ track:Track,seconds:Double,duration knownDuration:Double,play:Bool) {
+        guard !ControlLock.shared.isLocked,!setupLock.playbackBlocked,
+              seconds.isFinite,knownDuration.isFinite,knownDuration>0,
+              tracks.contains(where:{$0.id == track.id && $0.url == track.url}) else {return}
+        let target=min(max(0,seconds),max(0,knownDuration-1/600))
+        if play {
+            guard !setupLock.selectionBlocked else {return}
+            selectedID=track.id
+            load(track,autoplay:true,position:target,precisePosition:true)
+        }else if track.id == currentID {seek(target)}
+        else if isCrossfading,track.id == outgoingTrack?.id {
+            outgoing?.seek(to:CMTime(seconds:target,preferredTimescale:600),toleranceBefore:.zero,toleranceAfter:.zero)
+        }else {
+            guard !setupLock.selectionBlocked,track.id == nextTrack?.id else {return}
+            waveformCues[track.id]=target
+            preparationTask?.cancel();preparationTask=nil;preparationID=nil
+            prepared?.player.pause();prepared=nil;manualPreparation=false;failedPreparationSource=nil
+        }
+    }
     func seek(_ seconds: Double) {
         guard !setupLock.playbackBlocked else { return }
         guard !isLoading else { return }
@@ -599,7 +624,7 @@ final class Player: ObservableObject {
         guard automatic || !setupLock.selectionBlocked else { return }
         guard !tracks.isEmpty else { return }
         if let target = upcomingTrack() {
-            if automatic { load(target, position: 0) } else { play(target) }
+            if automatic { load(target, position: waveformCues[target.id] ?? 0, precisePosition:waveformCues[target.id] != nil) } else { play(target) }
         } else if !automatic { play(tracks[0]) }
         else { pause() }
     }
@@ -617,7 +642,7 @@ final class Player: ObservableObject {
             cancelCrossfade(); clearEndBoundary(); isLoading = false
             loadingTask?.cancel(); engine.pause(); engine.replaceCurrentItem(with: nil); playing = false; currentID = nil; elapsed = 0; duration = 0
         }
-        tracks.removeAll { $0.id == track.id }; if selectedID == track.id { selectedID=currentID ?? tracks.first?.id }; bookmarks.removeValue(forKey: track.id); positions.removeValue(forKey: track.id); transitionModes.removeValue(forKey: track.id); cancelCrossfade(); persist(); nowPlaying()
+        waveformCues.removeValue(forKey:track.id); tracks.removeAll { $0.id == track.id }; if selectedID == track.id { selectedID=currentID ?? tracks.first?.id }; bookmarks.removeValue(forKey: track.id); positions.removeValue(forKey: track.id); transitionModes.removeValue(forKey: track.id); cancelCrossfade(); persist(); nowPlaying()
     }
     func nowPlaying() {
         guard publishNowPlaying else { return }
@@ -669,7 +694,7 @@ enum ControlOutline: Shape {
     func path(in rect: CGRect) -> Path {
         switch self {
         case .circle: return Circle().path(in: rect)
-        case .rounded: return RoundedRectangle(cornerRadius: AppearancePreferences.shared.theme.radius).path(in: rect)
+        case .rounded: return TapeEdge().path(in:rect)
         case .capsule: return Capsule().path(in: rect)
         }
     }
@@ -683,8 +708,9 @@ struct PlayerControlStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(primary ? Color(stageHex:AppearancePreferences.shared.theme.text) : (active ? accent : Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.9)))
-            .background(primary ? accent.opacity(configuration.isPressed ? 0.65 : 0.3) : (active ? accent.opacity(0.16) : Color.white.opacity(configuration.isPressed ? 0.18 : 0.075)), in: outline)
+            .foregroundStyle(primary ? Color(stageHex:AppearancePreferences.shared.theme.text) : (active ? tapeInk : Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.95)))
+            .background(primary ? accent.opacity(configuration.isPressed ? 0.65 : 0.3) : (active ? tapeB.opacity(configuration.isPressed ? 0.8:1) : Color.black.opacity(configuration.isPressed ? 0.35 : 0.22)), in: outline)
+            .overlay(TapeGrain().clipShape(outline))
             .overlay(outline.stroke(primary ? accent.opacity(0.85) : (active ? accent.opacity(0.7) : Color.white.opacity(0.15)), lineWidth: 1))
             .contentShape(outline)
             .opacity(enabled ? 1 : 0.35)
@@ -700,7 +726,7 @@ struct TransitionControl: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(inQueue ? "Fade →" : "Crossfade")
-                .font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+                .font(.stage(size: 10, weight: .medium)).foregroundStyle(.secondary)
             Picker("Transition after \(track.title)", selection: Binding(get: { player.fadeMode(after: track) }, set: { player.setFadeMode($0, after: track) })) {
                 ForEach(FadeMode.allCases, id: \.self) { mode in Text(mode.title).tag(mode) }
             }.pickerStyle(.segmented).labelsHidden().tint(accent)
@@ -794,7 +820,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mainWindow.title = "Hard Play"; mainWindow.titlebarAppearsTransparent = true
         mainWindow.titleVisibility = .hidden; mainWindow.isMovableByWindowBackground = true
         mainWindow.isReleasedWhenClosed = false; mainWindow.delegate = self
-        mainWindow.contentView = NSHostingView(rootView: PlayerView().padding(.top, 20).background(ThemedBackdrop()).preferredColorScheme(.dark))
+        mainWindow.contentView = NSHostingView(rootView: PlayerView().padding(.top, 20).background(ThemedBackdrop()).preferredColorScheme(.dark).font(.stage(.body)))
         mainWindow.center(); mainWindow.setFrameAutosaveName("HARDPLAY.stage.minimal.minimal.main")
         miniWindow = FloatingPanel(contentRect: NSRect(x: 100, y: 100, width: 380, height: 540), styleMask: [.titled, .closable, .miniaturizable, .resizable, .nonactivatingPanel, .fullSizeContentView], backing: .buffered, defer: false)
         miniWindow.isOpaque = false; miniWindow.backgroundColor = .clear
@@ -837,9 +863,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let restored=pocketWindow.frame;let limited=PocketPanel.limitedSize(restored.size)
         pocketWindow.setContentSize(limited)
         settingsWindow = utilityWindow(title:"Hard Play Settings",width:370,height:500)
-        settingsWindow.contentView = NSHostingView(rootView:PlayerView(settingsOnly:true).padding(20).background(ThemedBackdrop()).preferredColorScheme(.dark))
+        settingsWindow.contentView = NSHostingView(rootView:PlayerView(settingsOnly:true).padding(20).background(ThemedBackdrop()).preferredColorScheme(.dark).font(.stage(.body)))
         themesWindow = utilityWindow(title:"Hard Play Themes",width:410,height:760)
-        themesWindow.contentView = NSHostingView(rootView:ThemeEditorView().background(ThemedBackdrop()).preferredColorScheme(.dark))
+        themesWindow.contentView = NSHostingView(rootView:ThemeEditorView().background(ThemedBackdrop()).preferredColorScheme(.dark).font(.stage(.body)))
     }
     func showQuickEdit(_ track:Track) {
         guard !SetupLock.shared.editsBlocked,!ControlLock.shared.isLocked else {return}
@@ -847,14 +873,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         quickEditModel?.close();quickEditWindow?.orderOut(nil)
         let model=QuickEditModel(track);quickEditModel=model
         let window=quickEditWindow ?? utilityWindow(title:"Hard Play Quick Edit",width:760,height:780)
-        window.contentMinSize=NSSize(width:620,height:650);window.contentView=NSHostingView(rootView:QuickEditView(edit:model).background(ThemedBackdrop()).preferredColorScheme(.dark))
+        window.contentMinSize=NSSize(width:620,height:650);window.contentView=NSHostingView(rootView:QuickEditView(edit:model).background(ThemedBackdrop()).preferredColorScheme(.dark).font(.stage(.body)))
         quickEditWindow=window;restore(window);NSApp.activate(ignoringOtherApps:true)
     }
     @objc func showWebViewer() {
         guard !SetupLock.shared.settingsBlocked,!ControlLock.shared.isLocked else {return}
         if viewerWindow == nil {
             viewerWindow=utilityWindow(title:"Hard Play Web Viewer",width:420,height:720)
-            viewerWindow.contentView=NSHostingView(rootView:WebViewerView().background(ThemedBackdrop()).preferredColorScheme(.dark))
+            viewerWindow.contentView=NSHostingView(rootView:WebViewerView().background(ThemedBackdrop()).preferredColorScheme(.dark).font(.stage(.body)))
             viewerWindow.contentMinSize=NSSize(width:380,height:500);viewerWindow.center()
         }
         restore(viewerWindow);NSApp.activate(ignoringOtherApps:true)
@@ -863,7 +889,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard !SetupLock.shared.settingsBlocked,!ControlLock.shared.isLocked else {return}
         if backupWindow == nil {
             backupWindow=utilityWindow(title:"Hard Play Timecode & Backup",width:500,height:690)
-            backupWindow.contentView=NSHostingView(rootView:BackupView().background(ThemedBackdrop()).preferredColorScheme(.dark))
+            backupWindow.contentView=NSHostingView(rootView:BackupView().background(ThemedBackdrop()).preferredColorScheme(.dark).font(.stage(.body)))
             backupWindow.contentMinSize=NSSize(width:440,height:540)
             backupWindow.center()
         }
@@ -912,7 +938,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         frame.origin.x = min(max(screen.minX,frame.minX),screen.maxX-frame.width)
         mainWindow.setFrame(frame,display:true,animate:true)
     }
-    @objc func showMain() { pocketWindow?.orderOut(nil); popover?.performClose(nil); restore(mainWindow); NSApp.activate(ignoringOtherApps: true) }
+    func ensureEmbeddedPlaylistRoom() {
+        guard !PlaylistWindowState.shared.detached,let window=mainWindow,
+              let screen=window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame else {return}
+        window.contentMinSize=NSSize(width:min(600,screen.width),height:min(740,max(620,screen.height-28)))
+        let frame=EmbeddedPlaylistLayout.frame(current:window.frame,visible:screen,tracks:Player.shared.tracks.count)
+        if frame != window.frame {window.setFrame(frame,display:true)}
+    }
+    @objc func showMain() { pocketWindow?.orderOut(nil); popover?.performClose(nil); ensureEmbeddedPlaylistRoom(); restore(mainWindow); NSApp.activate(ignoringOtherApps: true) }
     @objc func showMappings() {
         guard !ControlLock.shared.isLocked else { return }
         restore(mappingWindow); NSApp.activate(ignoringOtherApps:true)
@@ -1032,7 +1065,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 }
 
-if CommandLine.arguments.contains("--viewer-test") {
+_ = StageTypography.name
+
+if CommandLine.arguments.contains("--style-check") {
+    precondition(StageTypography.name.lowercased().contains("balsamiq"))
+    precondition(NSFont(name:StageTypography.name,size:14) != nil)
+    precondition(HardPlayBrand.artwork != nil)
+    for name in ["Tape Blue","Tape White","Tape Black"] {let theme=StageTheme.named(name);precondition(theme.preset == name && theme.texture)}
+    print("PASS: bundled marker font registered as \(StageTypography.name), approved beam artwork and all three tape presets available")
+} else if CommandLine.arguments.contains("--waveform-test") {
+    Task { @MainActor in do {try await runWaveformTests();exit(0)}catch {print("FAIL: \(error.localizedDescription)");exit(1)} };RunLoop.main.run()
+} else if CommandLine.arguments.contains("--viewer-test") {
     Task { @MainActor in do {try await runViewerTests();exit(0)}catch {print("FAIL: \(error.localizedDescription)");exit(1)} };RunLoop.main.run()
 } else if CommandLine.arguments.contains("--viewer-fixture") {
     Task { @MainActor in await runViewerFixture() };RunLoop.main.run()

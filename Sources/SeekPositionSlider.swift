@@ -19,7 +19,7 @@ struct SeekPositionSlider: View {
                     if enabled,validDuration,let x=hover.x {
                         let fraction=min(1,max(0,(x-6)/max(1,geometry.size.width-12)))
                         Text(timeLabel(Double(fraction)*duration))
-                            .font(.system(size:11,weight:.semibold,design:.monospaced)).foregroundStyle(.white)
+                            .font(.stage(size:11,weight:.semibold,design:.monospaced)).foregroundStyle(.white)
                             .padding(.horizontal,8).padding(.vertical,5)
                             .background(Color(red:0.08,green:0.14,blue:0.22).opacity(0.98),in:RoundedRectangle(cornerRadius:6))
                             .overlay(RoundedRectangle(cornerRadius:6).stroke(accent.opacity(0.5),lineWidth:1))

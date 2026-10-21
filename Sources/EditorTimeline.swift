@@ -22,7 +22,7 @@ struct EditorTimeline:NSViewRepresentable {
             guard let edit else {return};let area=NSRect(x:0,y:22,width:bounds.width,height:max(1,bounds.height-22))
             NSColor(calibratedRed:0.035,green:0.07,blue:0.11,alpha:1).setFill();bounds.fill()
             let grid=NSBezierPath();grid.lineWidth=0.5;NSColor.white.withAlphaComponent(0.12).setStroke()
-            for i in 0...8 {let px=bounds.width*CGFloat(i)/8;grid.move(to:.init(x:px,y:22));grid.line(to:.init(x:px,y:bounds.height));let label=ClipRange.label(edit.viewport.time(at:Double(i)/8));(label as NSString).draw(at:.init(x:min(max(3,px-25),max(3,bounds.width-62)),y:3),withAttributes:[.font:NSFont.monospacedDigitSystemFont(ofSize:9,weight:.regular),.foregroundColor:NSColor.white.withAlphaComponent(0.65)])};grid.stroke()
+            for i in 0...8 {let px=bounds.width*CGFloat(i)/8;grid.move(to:.init(x:px,y:22));grid.line(to:.init(x:px,y:bounds.height));let label=ClipRange.label(edit.viewport.time(at:Double(i)/8));(label as NSString).draw(at:.init(x:min(max(3,px-25),max(3,bounds.width-62)),y:3),withAttributes:[.font:StageTypography.native(9),.foregroundColor:NSColor.white.withAlphaComponent(0.65)])};grid.stroke()
             let wave=NSBezierPath();wave.lineWidth=1;NSColor(calibratedRed:0.58,green:0.77,blue:0.96,alpha:0.8).setStroke()
             for (i,peak) in edit.wavePeaks.enumerated() {let px=CGFloat(i)/CGFloat(max(1,edit.wavePeaks.count-1))*bounds.width;let h=max(1,CGFloat(peak)*(area.height-16));wave.move(to:.init(x:px,y:area.midY-h/2));wave.line(to:.init(x:px,y:area.midY+h/2))};wave.stroke()
             NSColor.black.withAlphaComponent(0.3).setFill();area.fill()
@@ -31,7 +31,7 @@ struct EditorTimeline:NSViewRepresentable {
                 let selected=edit.clipSelection.selected.contains(clip.id) && !(dragged && !additive)
                 NSColor(calibratedRed:0.58,green:0.77,blue:0.96,alpha:selected ? 0.25:0.02).setFill();NSRect(x:left,y:22,width:right-left,height:area.height).fill()
                 NSColor.white.withAlphaComponent(selected ? 0.8:0.25).setFill();NSRect(x:left,y:22,width:1,height:area.height).fill()
-                if right-left>55 {(String(format:"%02d",index+1) as NSString).draw(at:.init(x:left+6,y:bounds.height-17),withAttributes:[.font:NSFont.monospacedDigitSystemFont(ofSize:10,weight:.semibold),.foregroundColor:selected ? NSColor.white:NSColor.gray])}
+                if right-left>55 {(String(format:"%02d",index+1) as NSString).draw(at:.init(x:left+6,y:bounds.height-17),withAttributes:[.font:StageTypography.native(10),.foregroundColor:selected ? NSColor.white:NSColor.gray])}
             }
             let left=x(edit.start),right=x(edit.end)
             if dragged {NSColor(calibratedRed:0.58,green:0.77,blue:0.96,alpha:0.3).setFill();NSRect(x:max(0,left),y:22,width:max(0,min(bounds.width,right)-max(0,left)),height:area.height).fill()}
@@ -40,7 +40,7 @@ struct EditorTimeline:NSViewRepresentable {
             }
             let head=x(edit.position)
             if head>=0 && head<=bounds.width {NSColor.white.setFill();NSRect(x:head,y:22,width:1,height:area.height).fill()}
-            if let pointerX,let time=edit.hoverTime {let text=(NSEvent.modifierFlags.contains(.option) ? "▶ ":"")+ClipRange.label(time);(text as NSString).draw(at:.init(x:min(max(5,pointerX-35),max(5,bounds.width-110)),y:bounds.height-18),withAttributes:[.font:NSFont.monospacedDigitSystemFont(ofSize:11,weight:.semibold),.foregroundColor:NSColor.white,.backgroundColor:NSColor(calibratedRed:0.04,green:0.08,blue:0.14,alpha:0.95)])}
+            if let pointerX,let time=edit.hoverTime {let text=(NSEvent.modifierFlags.contains(.option) ? "▶ ":"")+ClipRange.label(time);(text as NSString).draw(at:.init(x:min(max(5,pointerX-35),max(5,bounds.width-110)),y:bounds.height-18),withAttributes:[.font:StageTypography.native(11),.foregroundColor:NSColor.white,.backgroundColor:NSColor(calibratedRed:0.04,green:0.08,blue:0.14,alpha:0.95)])}
         }
         override func mouseEntered(with event:NSEvent){mouseMoved(with:event)}
         override func mouseMoved(with event:NSEvent){let (px,time)=point(event);pointerX=px;edit?.timelineWindow=window;edit?.hover(time);needsDisplay=true}

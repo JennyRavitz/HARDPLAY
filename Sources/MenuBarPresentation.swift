@@ -25,30 +25,31 @@ enum MenuBarBadge: String {
     }
     func image() -> NSImage {
         let image = NSImage(size:NSSize(width:38,height:22),flipped:false) { _ in
-            let face=NSBezierPath(roundedRect:NSRect(x:1,y:1,width:23,height:20),xRadius:4,yRadius:4)
-            NSGradient(starting:NSColor(calibratedRed:0.92,green:0.13,blue:0.12,alpha:1),ending:NSColor(calibratedRed:0.38,green:0.025,blue:0.04,alpha:1))?.draw(in:face,angle:-90)
-            NSColor.white.withAlphaComponent(0.45).setStroke();face.lineWidth=0.7;face.stroke()
-            let paragraph=NSMutableParagraphStyle();paragraph.alignment = .center
-            let attributes:[NSAttributedString.Key:Any] = [.font:NSFont.systemFont(ofSize:7.5,weight:.heavy),.foregroundColor:NSColor.white,.paragraphStyle:paragraph]
-            ("Hard" as NSString).draw(in:NSRect(x:1,y:10,width:23,height:10),withAttributes:attributes)
-            ("Play" as NSString).draw(in:NSRect(x:1,y:2,width:23,height:10),withAttributes:attributes)
-            NSColor.labelColor.setFill()
+            let cg=NSGraphicsContext.current!.cgContext
+            cg.saveGState();cg.translateBy(x:1,y:2);cg.scaleBy(x:0.95,y:0.86)
+            let beam=NSBezierPath()
+            func polygon(_ points:[NSPoint]) {beam.move(to:points[0]);for point in points.dropFirst(){beam.line(to:point)};beam.close()}
+            polygon([.init(x:5,y:1),.init(x:0,y:21),.init(x:11,y:11)])
+            polygon([.init(x:12,y:1),.init(x:9,y:22),.init(x:15,y:22)])
+            polygon([.init(x:19,y:1),.init(x:13,y:11),.init(x:24,y:21)])
+            NSColor.black.setFill();beam.fill();cg.restoreGState()
+            NSColor.black.setFill()
             switch self {
             case .playing:
                 let path=NSBezierPath();path.move(to:NSPoint(x:29,y:6));path.line(to:NSPoint(x:36,y:11));path.line(to:NSPoint(x:29,y:16));path.close();path.fill()
             case .paused:
                 for x in [28.0,33.0] { NSBezierPath(roundedRect:NSRect(x:x,y:6,width:2.5,height:10),xRadius:0.6,yRadius:0.6).fill() }
             case .crossfade:
-                NSImage(systemSymbolName:"arrow.left.arrow.right",accessibilityDescription:nil)?.withSymbolConfiguration(.init(paletteColors:[.labelColor]))?.draw(in:NSRect(x:26,y:4,width:12,height:14))
+                cg.saveGState();cg.translateBy(x:26,y:5);cg.scaleBy(x:0.5,y:0.5);cg.addPath(MarkerIcon.path("arrow.left.and.right").cgPath);cg.setStrokeColor(NSColor.black.cgColor);cg.setLineWidth(2.2);cg.setLineCap(.round);cg.strokePath();cg.restoreGState()
             case .error:
-                ("!" as NSString).draw(at:NSPoint(x:29,y:2),withAttributes:[.font:NSFont.systemFont(ofSize:15,weight:.bold),.foregroundColor:NSColor.labelColor])
+                ("!" as NSString).draw(at:NSPoint(x:29,y:2),withAttributes:[.font:NSFont.systemFont(ofSize:15,weight:.bold),.foregroundColor:NSColor.black])
             case .empty:
-                NSColor.secondaryLabelColor.setFill();NSBezierPath(ovalIn:NSRect(x:30,y:9,width:4,height:4)).fill()
+                NSColor.black.setFill();NSBezierPath(ovalIn:NSRect(x:30,y:9,width:4,height:4)).fill()
             }
             return true
         }
-        image.isTemplate = false
-        image.accessibilityDescription = "Hard Play — \(title)"
+        image.isTemplate = true
+        image.accessibilityDescription = "HARDPLAY — \(title)"
         return image
     }
 }

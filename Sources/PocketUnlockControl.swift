@@ -15,7 +15,7 @@ struct PocketUnlockControl: NSViewRepresentable {
             let fill=NSRect(x:0,y:0,width:bounds.width*progress,height:3)
             NSColor(calibratedRed:0.65,green:0.82,blue:1,alpha:1).setFill();fill.fill()
             let text=progress>0 ? "Keep holding…":"Hold to unlock"
-            let attrs:[NSAttributedString.Key:Any]=[.font:NSFont.systemFont(ofSize:11,weight:.semibold),.foregroundColor:NSColor.white]
+            let attrs:[NSAttributedString.Key:Any]=[.font:StageTypography.native(11),.foregroundColor:NSColor.white]
             let size=(text as NSString).size(withAttributes:attrs)
             (text as NSString).draw(at:NSPoint(x:(bounds.width-size.width)/2,y:(bounds.height-size.height)/2),withAttributes:attrs)
         }

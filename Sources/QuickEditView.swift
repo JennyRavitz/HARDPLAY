@@ -152,52 +152,52 @@ struct QuickEditView:View {
     private var protected:Bool {lock.isLocked || setup.editsBlocked}
     var body:some View {
         ScrollView { VStack(alignment:.leading,spacing:12) {
-            HStack {Label("Quick Edit",systemImage:"scissors").font(.title2.bold());Spacer();Text("TRIM").font(.caption.bold()).foregroundStyle(accent)}
-            Text(edit.track.title).font(.headline).lineLimit(2)
-            Text("Choose a fragment. Save a copy or replace this playlist item.").font(.callout).foregroundStyle(.secondary)
+            HStack {MarkerLabel("Quick Edit",systemImage:"scissors").font(.stage(.title2).bold());Spacer();Text("TRIM").font(.stage(.caption).bold()).foregroundStyle(accent)}
+            Text(edit.track.title).font(.stage(.headline)).lineLimit(2)
+            Text("Choose a fragment. Save a copy or replace this playlist item.").font(.stage(.callout)).foregroundStyle(.secondary)
             EditorTimeline(edit:edit).frame(height:edit.waveHeight).background(.white.opacity(0.035),in:RoundedRectangle(cornerRadius:8))
             HStack(spacing:8) {
-                Button {edit.zoom(0.5)} label:{Image(systemName:"minus.magnifyingglass")}.accessibilityLabel("Zoom Out Audio")
-                Text(String(format:"%.0f×",edit.viewport.zoom)).font(.system(.caption,design:.monospaced)).frame(width:36)
-                Button {edit.zoom(2)} label:{Image(systemName:"plus.magnifyingglass")}.accessibilityLabel("Zoom In Audio")
+                Button {edit.zoom(0.5)} label:{MarkerIcon(systemName:"minus.magnifyingglass")}.accessibilityLabel("Zoom Out Audio")
+                Text(String(format:"%.0f×",edit.viewport.zoom)).font(.stage(.caption,design:.monospaced)).frame(width:36)
+                Button {edit.zoom(2)} label:{MarkerIcon(systemName:"plus.magnifyingglass")}.accessibilityLabel("Zoom In Audio")
                 Button("Fit Selection") {edit.fitSelection()}
                 Button("Fit All") {edit.viewport=TimelineViewport(duration:edit.duration)}
                 Spacer()
-                Text("Height").font(.caption)
+                Text("Height").font(.stage(.caption))
                 Slider(value:$edit.waveHeight,in:100...260).frame(width:80).accessibilityLabel("Audio Track Height")
                 if edit.waveBusy {ProgressView().controlSize(.mini)}
             }.disabled(edit.busy || edit.duration<=0)
             if edit.viewport.zoom>1 {
-                HStack {Text(ClipRange.label(edit.viewport.start)).font(.caption.monospacedDigit());Slider(value:Binding(get:{edit.viewport.start},set:{edit.viewport.pan($0)}),in:0...max(0.001,edit.duration-edit.viewport.length)).accessibilityLabel("Audio Timeline Scroll");Text(ClipRange.label(edit.viewport.start+edit.viewport.length)).font(.caption.monospacedDigit())}
+                HStack {Text(ClipRange.label(edit.viewport.start)).font(.stage(.caption).monospacedDigit());Slider(value:Binding(get:{edit.viewport.start},set:{edit.viewport.pan($0)}),in:0...max(0.001,edit.duration-edit.viewport.length)).accessibilityLabel("Audio Timeline Scroll");Text(ClipRange.label(edit.viewport.start+edit.viewport.length)).font(.stage(.caption).monospacedDigit())}
             }
-            HStack {Button("Split at Cursor") {edit.splitAtCursor()};Button("Clear Selection") {edit.clearSelection()};Spacer();Text("\(edit.selectionCount) selected · \(ClipRange.label(edit.selectedDuration))").font(.caption.monospacedDigit())}.disabled(protected || edit.busy || edit.duration<=0)
-            Text("Drag to select · ⌘-drag adds a region · ⌘-click selects clips · Option-hover auditions · arrows move by one sample").font(.caption).foregroundStyle(.secondary)
+            HStack {Button("Split at Cursor") {edit.splitAtCursor()};Button("Clear Selection") {edit.clearSelection()};Spacer();Text("\(edit.selectionCount) selected · \(ClipRange.label(edit.selectedDuration))").font(.stage(.caption).monospacedDigit())}.disabled(protected || edit.busy || edit.duration<=0)
+            Text("Drag to select · ⌘-drag adds a region · ⌘-click selects clips · Option-hover auditions · arrows move by one sample").font(.stage(.caption)).foregroundStyle(.secondary)
             HStack(spacing:14) {
-                VStack(alignment:.leading){Text("IN").font(.caption.bold());TextField("In",text:$edit.inText).onSubmit {edit.commitText()}.accessibilityLabel("Clip In Time");Button("Mark In") {edit.setStart(edit.position);edit.commitRegion(add:false)}}
-                VStack(alignment:.leading){Text("OUT").font(.caption.bold());TextField("Out",text:$edit.outText).onSubmit {edit.commitText()}.accessibilityLabel("Clip Out Time");Button("Mark Out") {edit.setEnd(edit.position);edit.commitRegion(add:false)}}
-                VStack(alignment:.leading){Text("LENGTH").font(.caption.bold());Text(ClipRange.label(edit.selectedDuration)).font(.system(.body,design:.monospaced));Button("Full Track") {edit.selectWhole()}}
+                VStack(alignment:.leading){Text("IN").font(.stage(.caption).bold());TextField("In",text:$edit.inText).onSubmit {edit.commitText()}.accessibilityLabel("Clip In Time");Button("Mark In") {edit.setStart(edit.position);edit.commitRegion(add:false)}}
+                VStack(alignment:.leading){Text("OUT").font(.stage(.caption).bold());TextField("Out",text:$edit.outText).onSubmit {edit.commitText()}.accessibilityLabel("Clip Out Time");Button("Mark Out") {edit.setEnd(edit.position);edit.commitRegion(add:false)}}
+                VStack(alignment:.leading){Text("LENGTH").font(.stage(.caption).bold());Text(ClipRange.label(edit.selectedDuration)).font(.stage(.body,design:.monospaced));Button("Full Track") {edit.selectWhole()}}
             }.textFieldStyle(.roundedBorder).disabled(edit.busy || protected || edit.duration<=0)
             VStack {
                 HStack {Text("In").frame(width:30,alignment:.leading);Slider(value:Binding(get:{edit.start},set:{edit.setStart($0)}),in:0...max(0.001,edit.duration),onEditingChanged:{if !$0 {edit.commitRegion(add:false)}}).accessibilityLabel("Clip In Point")}
                 HStack {Text("Out").frame(width:30,alignment:.leading);Slider(value:Binding(get:{edit.end},set:{edit.setEnd($0)}),in:0...max(0.001,edit.duration),onEditingChanged:{if !$0 {edit.commitRegion(add:false)}}).accessibilityLabel("Clip Out Point")}
             }.disabled(edit.busy || protected || edit.duration<=0).tint(accent)
             HStack {
-                Button {edit.togglePreview()} label: {Label(edit.playing ? "Stop Preview":"Preview Selection",systemImage:edit.playing ? "stop.fill":"play.fill")}.disabled(protected || setup.playbackBlocked || player.playing || edit.duration<=0 || edit.busy)
+                Button {edit.togglePreview()} label: {MarkerLabel(edit.playing ? "Stop Preview":"Preview Selection",systemImage:edit.playing ? "stop.fill":"play.fill")}.disabled(protected || setup.playbackBlocked || player.playing || edit.duration<=0 || edit.busy)
                 Slider(value:Binding(get:{edit.position},set:{edit.seekPreview($0)}),in:0...max(0.001,edit.duration)).accessibilityLabel("Edit Preview Position").disabled(protected || setup.playbackBlocked || edit.duration<=0 || edit.busy)
-                Text(ClipRange.preciseLabel(edit.position)).font(.system(.caption,design:.monospaced)).frame(width:100)
-                Image(systemName:"speaker.wave.1").font(.caption)
+                Text(ClipRange.preciseLabel(edit.position)).font(.stage(.caption,design:.monospaced)).frame(width:100)
+                MarkerIcon(systemName:"speaker.wave.1").font(.stage(.caption))
                 Slider(value:$edit.previewVolume,in:0...1).frame(width:60).accessibilityLabel("Preview Volume")
             }
-            if player.playing {Text("Main player is playing. Preview is available after pausing it.").font(.caption).foregroundStyle(.secondary)}
+            if player.playing {Text("Main player is playing. Preview is available after pausing it.").font(.stage(.caption)).foregroundStyle(.secondary)}
             Spacer(minLength:0)
-            Text(edit.message).font(.caption).textSelection(.enabled).fixedSize(horizontal:false,vertical:true)
+            Text(edit.message).font(.stage(.caption)).textSelection(.enabled).fixedSize(horizontal:false,vertical:true)
             if edit.busy {HStack {ProgressView().controlSize(.small);Button("Cancel Export"){edit.cancelExport()}}}
             HStack {
                 Button(edit.selectionCount>1 ? "Join & Save Copy…":"Save as Copy…") {edit.save(replace:false)}.buttonStyle(.borderedProminent)
                 Button(edit.selectionCount>1 ? "Join & Replace…":"Replace in Playlist…") {edit.save(replace:true)}.buttonStyle(.bordered)
                 Spacer()
             }.disabled(edit.busy || protected || !edit.hasSelection)
-            Text("Original file preserved · WAV 32-bit float · original sample rate & channels").font(.caption2).foregroundStyle(.secondary)
+            Text("Original file preserved · WAV 32-bit float · original sample rate & channels").font(.stage(.caption2)).foregroundStyle(.secondary)
         }.padding(22) }.frame(minWidth:620,minHeight:650).task {await edit.prepare()}
             .task(id:edit.viewportKey) {await edit.loadWaveform()}
             .onChange(of:lock.isLocked) {_,value in if value {edit.stopPreview()}}

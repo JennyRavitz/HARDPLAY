@@ -6,7 +6,7 @@ const root=new URL('../',import.meta.url),pub=new URL('public/',root),files=(awa
 for(const name of files.filter(n=>/\.m?js$/.test(n)))execFileSync(process.execPath,['--check',fileURLToPath(new URL(name,pub))],{stdio:'inherit'});
 const entries=await Promise.all(files.map(async name=>[name,await readFile(new URL(name,pub))]));
 const hash=createHash('sha256');for(const [name,data]of entries)hash.update(name).update(data);const version=hash.digest('hex').slice(0,16);
-const types={html:'text/html; charset=utf-8',css:'text/css; charset=utf-8',mjs:'application/javascript; charset=utf-8',js:'application/javascript; charset=utf-8',png:'image/png',webmanifest:'application/manifest+json'};
+const types={html:'text/html; charset=utf-8',css:'text/css; charset=utf-8',mjs:'application/javascript; charset=utf-8',js:'application/javascript; charset=utf-8',png:'image/png',ttf:'font/ttf',txt:'text/plain; charset=utf-8',webmanifest:'application/manifest+json'};
 const assets=Object.fromEntries(entries.map(([name,data])=>['/'+name,{body:(name==='sw.js'?Buffer.from(data.toString().replaceAll('__BUILD_HASH__',version)):data).toString('base64'),type:types[name.split('.').pop()]||'application/octet-stream'}]));
 const providers=(await readFile(new URL('public/providers.mjs',root),'utf8')).replaceAll('export function','function');
 const worker=(await readFile(new URL('worker/index.mjs',root),'utf8')).replace(/^import .*;\n/,'');

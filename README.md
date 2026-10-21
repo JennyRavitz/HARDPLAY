@@ -134,3 +134,9 @@ Select two or more regions, then **Join & Save Copy** or **Join & Replace** to e
 Settings → **Web Viewer** → **Start Web Viewer** provides a QR code and a session link for another device on the same trusted Wi-Fi or Ethernet network. The responsive, read-only page shows the live set, current and next tracks, remaining time, queue and crossfade state. Audio stays on the Mac. Stop Sharing revokes the session link; sharing never starts automatically. This is a local HTTP viewer, not internet hosting. See [setup and limitations](docs/WEB-VIEWER.ru.md).
 
 Button hints now appear in a reserved **HINT** area at the top of each player window instead of floating over controls. The existing Show button hints switch still applies.
+
+## Marker & Tape (0.21.0)
+
+The blue three-beam icon, bundled marker lettering and hand-inked vector controls form the new identity. **Tape Blue / Tape White / Tape Black** presets provide live preview with automatic ink contrast. The primary wordmark reads **HARDPLAY**; the compact version stacks **HARD** over **PLAY**. Both are previewed in Themes, with six standalone SVG wordmarks under `assets/branding/wordmarks/`.
+
+The typeface is bundled for offline use and registered only inside the Mac process. Matching web-player sources and local Web Viewer styling are included. See [the identity guide](docs/MARKER-IDENTITY.ru.md).

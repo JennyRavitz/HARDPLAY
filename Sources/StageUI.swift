@@ -81,11 +81,12 @@ struct TapeEdge: Shape {
 }
 var tapeB: Color { Color(stageHex:AppearancePreferences.shared.theme.tape) }
 struct TapeLabel: View {
+    @ObservedObject private var appearance=AppearancePreferences.shared
     var text: String
     var secondary = false
     var body: some View {
-        Text(text).font(.custom("MarkerFelt-Wide", size: 14)).foregroundStyle(Color(red: 0.07, green: 0.13, blue: 0.22))
-            .padding(.horizontal, 12).padding(.vertical, 5).background(secondary ? tapeB : accent, in: TapeEdge()).rotationEffect(.degrees(secondary ? 1 : -1))
+        Text(text).font(.custom(StageTypography.name, size: 14)).foregroundStyle(tapeInk)
+            .padding(.horizontal, 12).padding(.vertical, 5).background(TapeSurface()).rotationEffect(.degrees(secondary ? 1 : -1))
     }
 }
 
@@ -127,21 +128,19 @@ struct StageDeck: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline) {
-                Text(player.queueNumber(track)).font(.custom("MarkerFelt-Thin", size: compact ? 24 : 28)).monospacedDigit()
+                Text(player.queueNumber(track)).font(.custom(StageTypography.name, size: compact ? 24 : 28)).monospacedDigit()
                 Spacer()
                 Text(right ? (player.isCrossfading ? "INCOMING" : "NEXT") : (player.isCrossfading ? "OUTGOING" : "NOW"))
-                    .font(.system(size: 9, weight: .semibold)).tracking(1).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.65))
+                    .font(.stage(size: 9, weight: .semibold)).tracking(1).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.65))
             }
             Text(track?.title ?? (right ? "End of Queue" : "Add your music"))
-                .font(.system(size: (compact ? 13 : 16) * AppearancePreferences.shared.theme.textScale, weight: .semibold)).lineLimit(2).frame(height:(compact ? 34 : 40) * AppearancePreferences.shared.theme.textScale,alignment:.topLeading).stageHint(track?.title ?? "No track selected")
+                .font(.stage(size: (compact ? 13 : 16) * AppearancePreferences.shared.theme.textScale, weight: .semibold)).lineLimit(2).frame(height:(compact ? 34 : 40) * AppearancePreferences.shared.theme.textScale,alignment:.topLeading).stageHint(track?.title ?? "No track selected")
             HStack { Text("\(timeLabel(elapsed)) / \(timeLabel(actualDuration))"); Spacer(); Text("\(Int(gain * 100))%") }
-                .font(.system(size: 10, design: .monospaced)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.7))
-            ZStack {
-                if let track, let envelope = waves.cache[Waveforms.key(track)] {
-                    if envelope.peaks.isEmpty { Text("Waveform unavailable").font(.system(size: 10)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.55)) }
-                    else { DeckWave(peaks: envelope.peaks, fraction: actualDuration > 0 ? elapsed / actualDuration : 0, color: right ? tapeB : accent, gain: gain) }
-                } else if track != nil { ProgressView().controlSize(.small) }
-            }.frame(height: compact ? 30 : 36)
+                .font(.stage(size: 10, design: .monospaced)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.7))
+            StageWaveform(identity:track?.id ?? "empty",peaks:track.flatMap { waves.cache[Waveforms.key($0)]?.peaks } ?? [],duration:actualDuration,elapsed:elapsed,gain:gain,color:right ? tapeB:accent,enabled:track != nil && !ControlLock.shared.isLocked && !SetupLock.shared.playbackBlocked) { seconds,play in
+                if let track {player.waveformAction(track,seconds:seconds,duration:actualDuration,play:play)}
+            }.frame(height:compact ? 42:50)
+                .stageHint(right && !player.isCrossfading ? "Hover: time · Click: set next start · Double-click: play here" : "Hover: time · Click or drag: seek · Double-click: play here")
             GeometryReader { g in
                 Rectangle().fill(.white.opacity(0.1)).overlay(alignment: .leading) {
                     Rectangle().fill(right ? tapeB : accent).frame(width: g.size.width * gain)
@@ -172,7 +171,7 @@ struct NativeUnlockControl: NSViewRepresentable {
         override func draw(_ dirtyRect: NSRect) {
             let rail = NSRect(x: bounds.midX - 13, y: 6, width: 26, height: bounds.height - 12)
             NSColor.white.withAlphaComponent(0.09).setFill(); NSBezierPath(roundedRect: rail, xRadius: 13, yRadius: 13).fill()
-            ("↑" as NSString).draw(at: NSPoint(x: bounds.midX - 7, y: bounds.height - 26), withAttributes: [.font: NSFont.systemFont(ofSize: 20), .foregroundColor: NSColor.white.withAlphaComponent(0.65)])
+            ("↑" as NSString).draw(at: NSPoint(x: bounds.midX - 7, y: bounds.height - 26), withAttributes: [.font: StageTypography.native(20), .foregroundColor: NSColor.white.withAlphaComponent(0.65)])
             let thumb = NSRect(x: bounds.midX - 34, y: 8 + distance, width: 68, height: 42)
             NSColor(calibratedRed: 0.58, green: 0.77, blue: 0.96, alpha: 1).setFill(); NSBezierPath(roundedRect: thumb, xRadius: 21, yRadius: 21).fill()
             if let image = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: nil)?.withSymbolConfiguration(.init(paletteColors: [NSColor(calibratedRed: 0.07, green: 0.13, blue: 0.23, alpha: 1)])) {
@@ -221,9 +220,9 @@ struct UnlockShield: View {
         ZStack(alignment: .bottom) {
             Color.black.opacity(0.04).contentShape(Rectangle()).onTapGesture {}
             VStack(spacing: 6) {
-                Text("Controls locked · music continues").font(.system(size: 12, weight: .medium))
+                Text("Controls locked · music continues").font(.stage(size: 12, weight: .medium))
                 NativeUnlockControl().frame(width: 110, height: 120)
-                Text("Drag up or hold Space").font(.system(size: 11)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.7))
+                Text("Drag up or hold Space").font(.stage(size: 11)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.7))
             }.padding(12).frame(maxWidth: .infinity)
                 .background(Color(red: 0.055, green: 0.10, blue: 0.18).opacity(0.97))
         }.disabled(false)
@@ -246,12 +245,18 @@ struct PlayerView: View {
     @ViewBuilder var body: some View {
         Group { if settingsOnly { settings } else if playlistOnly { detachedPlaylist } else { playerBody } }
             .audioFileDrop(enabled:!settingsOnly)
-            .fixedControlHints()
+            .fixedControlHints().font(.stage(.body))
     }
     @ViewBuilder private var playerBody: some View {
         if compact { stageBody(wide:false).frame(minWidth:380) }
         else {
-            GeometryReader { geometry in stageBody(wide:geometry.size.width >= 840) }
+            GeometryReader { geometry in
+                let wide=geometry.size.width >= 840
+                let required:CGFloat=playlistWindow.detached ? 660:(wide ? 720:820)
+                if geometry.size.height < required {
+                    ScrollView(.vertical) {stageBody(wide:wide).frame(minHeight:required)}
+                }else {stageBody(wide:wide)}
+            }
                 .frame(minWidth:520,minHeight:600)
         }
     }
@@ -266,7 +271,7 @@ struct PlayerView: View {
             }.disabled(lock.isLocked).allowsHitTesting(!lock.isLocked)
         }
         .padding(compact ? 14 : 16).frame(maxWidth:.infinity,maxHeight:compact ? nil:.infinity,alignment:.top)
-        .foregroundStyle(Color(stageHex:appearance.theme.text)).preferredColorScheme(.dark)
+        .foregroundStyle(Color(stageHex:appearance.theme.text)).preferredColorScheme(.dark).font(.stage(.body))
         .overlay { if lock.isLocked { UnlockShield() } }
         .onChange(of:playlistWindow.detached) { _, detached in if detached { ui.playlist = false } }
         .onChange(of:lock.isLocked) { _, locked in if locked { ui.settings = false; ui.playlist = false; ui.protection = false } }
@@ -278,14 +283,14 @@ struct PlayerView: View {
                     StageDeck(player: player, track: player.stageRight, right: true, compact: compact)
                 }
                 HStack(spacing: 8) {
-                    Text("\(player.queueNumber(player.stageLeft)) → \(player.queueNumber(player.stageRight))").font(.system(size: 10, design: .monospaced))
+                    Text("\(player.queueNumber(player.stageLeft)) → \(player.queueNumber(player.stageRight))").font(.stage(size: 10, design: .monospaced))
                     GeometryReader { g in
                         Capsule().fill(.white.opacity(0.1)).overlay(alignment: .leading) {
                             Capsule().fill(LinearGradient(colors: [accent,tapeB], startPoint: .leading, endPoint: .trailing)).frame(width: g.size.width * (player.isCrossfading ? player.fadeProgress : 0))
                         }
                     }.frame(height: 4)
                     Text(player.isCrossfading ? String(format: "%.1f s", player.transitionRemaining) : (player.endMode == .stop ? "STOP" : ""))
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.stage(size: 10, design: .monospaced))
                 }.foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.7))
                 SeekPositionSlider(value: Binding(get: { ui.scrubbing ? ui.scrub : player.elapsed }, set: { ui.scrub = $0 }), duration:player.duration, onEditingChanged: { editing in
                     if editing { ui.scrub = player.elapsed; ui.scrubbing = true } else { player.seek(ui.scrub); ui.scrubbing = false }
@@ -293,48 +298,48 @@ struct PlayerView: View {
                 transport
                 if compact { restartButtons }
                 HStack(spacing:8) {
-                    Image(systemName:player.volume == 0 ? "speaker.slash":"speaker.wave.2").font(.system(size:12)).foregroundStyle(accent)
+                    MarkerIcon(systemName:player.volume == 0 ? "speaker.slash":"speaker.wave.2").font(.stage(size:12)).foregroundStyle(accent)
                     Slider(value:$player.volume,in:0...1).controlSize(.small).tint(accent).accessibilityLabel("Master Volume")
-                    Text("\(Int(player.volume * 100))%").font(.system(size:11,design:.monospaced)).frame(width:38,alignment:.trailing)
+                    Text("\(Int(player.volume * 100))%").font(.stage(size:11,design:.monospaced)).frame(width:38,alignment:.trailing)
                 }.disabled(setup.playbackBlocked).mapAction("volume")
                 QueuePolicyControls(player:player)
-                if let error = player.error { Text(error).font(.system(size: 11)).foregroundStyle(.orange).fixedSize(horizontal:false, vertical:true) }
+                if let error = player.error { Text(error).font(.stage(size: 11)).foregroundStyle(.orange).fixedSize(horizontal:false, vertical:true) }
         }
     }
     private var playlistPanel: some View {
         VStack(spacing:10) {
                 HStack {
                     playlistTape
-                    Menu { playlistActions } label: { Image(systemName:"folder").frame(width:24,height:28) }
+                    Menu { playlistActions } label: { MarkerIcon(systemName:"folder").frame(width:24,height:28) }
                         .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Playlist Files")
                     Spacer()
                     if compact {
-                        Button { AppDelegate.shared.showMain() } label: { Label("Edit Queue",systemImage:"list.bullet").font(.system(size:11)).padding(.horizontal,9).frame(height:30) }
+                        Button { AppDelegate.shared.showMain() } label: { MarkerLabel("Edit Queue",systemImage:"list.bullet").font(.stage(size:11)).padding(.horizontal,9).frame(height:30) }
                             .buttonStyle(PlayerControlStyle()).accessibilityLabel("Open Full Queue")
                     } else {
-                        Button { ui.protection.toggle() } label: { Label("Edit", systemImage:"slider.horizontal.3").font(.system(size:11)).padding(.horizontal,8).frame(height:30) }
+                        Button { ui.protection.toggle() } label: { MarkerLabel("Edit", systemImage:"slider.horizontal.3").font(.stage(size:11)).padding(.horizontal,8).frame(height:30) }
                             .buttonStyle(PlayerControlStyle()).popover(isPresented:$ui.protection) { protectionSettings }
                         setupLockButton
-                        Button { player.openFiles() } label: { Image(systemName:"plus").frame(width:30,height:30) }.buttonStyle(PlayerControlStyle()).disabled(setup.editsBlocked).accessibilityLabel("Add Audio").stageHint("Add audio files or a folder",below:true)
+                        Button { player.openFiles() } label: { MarkerIcon(systemName:"plus").frame(width:30,height:30) }.buttonStyle(PlayerControlStyle()).disabled(setup.editsBlocked).accessibilityLabel("Add Audio").stageHint("Add audio files or a folder",below:true)
                     }
                 }.padding(.top,3)
                 if !compact {
                     HStack(spacing:6) {
-                        Button { playlistWindow.attach(toMini:false) } label: { Label("In Player",systemImage:"rectangle.split.2x1").font(.system(size:11)).padding(6) }
+                        Button { playlistWindow.attach(toMini:false) } label: { MarkerLabel("In Player",systemImage:"rectangle.split.2x1").font(.stage(size:11)).padding(6) }
                             .buttonStyle(PlayerControlStyle(active:!playlistWindow.detached)).accessibilityLabel("Playlist In Player")
                         Menu {
                             ForEach(PlaylistDockEdge.allCases,id:\.rawValue) { side in
                                 Button(side.title) { playlistWindow.dock(side) }
                             }
-                        } label: { Label(playlistWindow.edge?.title ?? "Dock",systemImage:"rectangle.split.2x1").font(.system(size:11)).padding(6) }
+                        } label: { MarkerLabel(playlistWindow.edge?.title ?? "Dock",systemImage:"rectangle.split.2x1").font(.stage(size:11)).padding(6) }
                             .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Playlist Dock Side")
-                        Button { playlistWindow.toggleSeparate() } label: { Label("Separate Window",systemImage:"arrow.up.right.square").font(.system(size:11)).padding(6) }
+                        Button { playlistWindow.toggleSeparate() } label: { MarkerLabel("Separate Window",systemImage:"arrow.up.right.square").font(.stage(size:11)).padding(6) }
                             .buttonStyle(PlayerControlStyle(active:playlistWindow.separateVisible)).accessibilityLabel("Playlist Separate Window").accessibilityValue(playlistWindow.separateVisible ? "Open":"Hidden").stageHint(playlistWindow.separateVisible ? "Hide separate playlist window":"Open separate playlist window")
                         Spacer(minLength:0)
                     }
                     if playlistWindow.detached {
                         Button { AppDelegate.shared.showPlaylistWindow() } label: {
-                            Label("Open Playlist Window",systemImage:"rectangle.on.rectangle").font(.system(size:12)).frame(maxWidth:.infinity).padding(.vertical,16)
+                            MarkerLabel("Open Playlist Window",systemImage:"rectangle.on.rectangle").font(.stage(size:12)).frame(maxWidth:.infinity).padding(.vertical,16)
                         }.buttonStyle(PlayerControlStyle()).frame(maxHeight:.infinity,alignment:.top)
                     } else { queue }
                 }
@@ -361,26 +366,26 @@ struct PlayerView: View {
     private var miniPlaylist: some View {
         VStack(alignment:.leading,spacing:10) {
             HStack {
-                Text(player.playlistName).font(.system(size:14,weight:.semibold)); Spacer()
-                Button { ui.playlist = false; playlistWindow.detach() } label: { Image(systemName:"arrow.up.right.square").font(.system(size:13)).frame(width:30,height:30) }
+                Text(player.playlistName).font(.stage(size:14,weight:.semibold)); Spacer()
+                Button { ui.playlist = false; playlistWindow.detach() } label: { MarkerIcon(systemName:"arrow.up.right.square").font(.stage(size:13)).frame(width:30,height:30) }
                     .buttonStyle(PlayerControlStyle()).accessibilityLabel("Detach Playlist").stageHint("Detach playlist")
             }
-            if setup.isLocked { Label("Setup locked",systemImage:"lock.fill").font(.system(size:10)).foregroundStyle(accent) }
+            if setup.isLocked { MarkerLabel("Setup locked",systemImage:"lock.fill").font(.stage(size:10)).foregroundStyle(accent) }
             queue.frame(height:min(300,max(100,CGFloat(player.tracks.count)*56)))
             Divider()
             HStack {
-                Menu { playlistActions } label: { Label("Playlist",systemImage:"folder").font(.system(size:11)) }.menuStyle(.borderlessButton).fixedSize()
+                Menu { playlistActions } label: { MarkerLabel("Playlist",systemImage:"folder").font(.stage(size:11)) }.menuStyle(.borderlessButton).fixedSize()
                 Spacer()
                 Button("Full Queue") { ui.playlist = false; AppDelegate.shared.showMain() }.buttonStyle(PlayerControlStyle()).padding(3)
             }
-        }.padding(14).frame(width:340).foregroundStyle(.white).preferredColorScheme(.dark)
+        }.padding(14).frame(width:340).foregroundStyle(.white).preferredColorScheme(.dark).font(.stage(.body))
     }
     private var detachedPlaylist: some View {
         VStack(spacing:12) {
             HStack {
                 playlistTape
                 Spacer()
-                Button { AppDelegate.shared.minimize(AppDelegate.shared.playlistWindow) } label: { Image(systemName:"minus").frame(width:28,height:28) }
+                Button { AppDelegate.shared.minimize(AppDelegate.shared.playlistWindow) } label: { MarkerIcon(systemName:"minus").frame(width:28,height:28) }
                     .buttonStyle(PlayerControlStyle()).accessibilityLabel("Minimize Playlist").stageHint("Minimize playlist · restore from menu bar")
                 Menu {
                     ForEach(PlaylistDockEdge.allCases,id:\.rawValue) { side in Button(side.title) { playlistWindow.dock(side,fromMini:playlistWindow.fromMini) } }
@@ -388,26 +393,26 @@ struct PlayerView: View {
                     Divider()
                     Button("Attach to Mini Player") { playlistWindow.attach(toMini:true) }
                     Button("Attach to Main Player") { playlistWindow.attach(toMini:false) }
-                } label: { Image(systemName:"link").font(.system(size:13)).frame(width:30,height:30) }
+                } label: { MarkerIcon(systemName:"link").font(.stage(size:13)).frame(width:30,height:30) }
                     .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Attach Playlist")
             }
             HStack {
-                Text("\(player.tracks.count) tracks").font(.system(size:11)).foregroundStyle(.secondary)
+                Text("\(player.tracks.count) tracks").font(.stage(size:11)).foregroundStyle(.secondary)
                 Spacer()
-                if setup.isLocked { Label("Setup locked",systemImage:"lock.fill").font(.system(size:10)).foregroundStyle(accent) }
+                if setup.isLocked { MarkerLabel("Setup locked",systemImage:"lock.fill").font(.stage(size:10)).foregroundStyle(accent) }
             }
             queue
             Divider()
             HStack(spacing:8) {
-                Menu { playlistActions } label: { Label("Playlist",systemImage:"folder").font(.system(size:11)) }.menuStyle(.borderlessButton).fixedSize()
+                Menu { playlistActions } label: { MarkerLabel("Playlist",systemImage:"folder").font(.stage(size:11)) }.menuStyle(.borderlessButton).fixedSize()
                 Spacer()
-                Button { ui.protection.toggle() } label: { Label("Edit",systemImage:"slider.horizontal.3").font(.system(size:11)).padding(.horizontal,8).frame(height:30) }
+                Button { ui.protection.toggle() } label: { MarkerLabel("Edit",systemImage:"slider.horizontal.3").font(.stage(size:11)).padding(.horizontal,8).frame(height:30) }
                     .buttonStyle(PlayerControlStyle()).popover(isPresented:$ui.protection) { protectionSettings }
                 setupLockButton
-                Button { player.openFiles() } label: { Image(systemName:"plus").frame(width:30,height:30) }.buttonStyle(PlayerControlStyle()).disabled(setup.editsBlocked).accessibilityLabel("Add Audio")
+                Button { player.openFiles() } label: { MarkerIcon(systemName:"plus").frame(width:30,height:30) }.buttonStyle(PlayerControlStyle()).disabled(setup.editsBlocked).accessibilityLabel("Add Audio")
             }
         }.padding(16).padding(.top,14).frame(minWidth:380,minHeight:280)
-            .foregroundStyle(Color(stageHex:appearance.theme.text)).preferredColorScheme(.dark)
+            .foregroundStyle(Color(stageHex:appearance.theme.text)).preferredColorScheme(.dark).font(.stage(.body))
             .disabled(lock.isLocked).allowsHitTesting(!lock.isLocked)
             .overlay { if lock.isLocked { UnlockShield() } }
             .onChange(of:lock.isLocked) { _, locked in if locked { ui.protection = false } }
@@ -416,86 +421,85 @@ struct PlayerView: View {
         Button {
             if setup.isLocked { setup.unlock() } else { setup.lock(); ui.protection = false }
         } label: {
-            Image(systemName:setup.isLocked ? "lock.fill":"lock.open").font(.system(size:13)).frame(width:30,height:30)
+            MarkerIcon(systemName:setup.isLocked ? "lock.fill":"lock.open").font(.stage(size:13)).frame(width:30,height:30)
         }.buttonStyle(PlayerControlStyle(outline:.capsule,active:setup.isLocked))
             .accessibilityLabel(setup.isLocked ? "Unlock Setup":"Lock Setup")
             .stageHint(setup.isLocked ? "Unlock protected controls":"Protect your selected controls")
     }
     private var protectionSettings: some View {
         VStack(alignment:.leading,spacing:12) {
-            Text("Protect your setup").font(.system(size:14,weight:.semibold))
-            Text("Choose what Lock Setup protects.").font(.system(size:11)).foregroundStyle(.secondary)
+            Text("Protect your setup").font(.stage(size:14,weight:.semibold))
+            Text("Choose what Lock Setup protects.").font(.stage(size:11)).foregroundStyle(.secondary)
             Toggle("Playlist edits & fades",isOn:$setup.protectEdits).disabled(setup.isLocked)
             Toggle("Track selection & skip",isOn:$setup.protectSelection).disabled(setup.isLocked)
             Toggle("Playback & seeking",isOn:$setup.protectPlayback).disabled(setup.isLocked)
             Toggle("Settings & mappings",isOn:$setup.protectSettings).disabled(setup.isLocked)
-            Text("Automatic playback and transitions continue.").font(.system(size:10)).foregroundStyle(.secondary)
+            Text("Automatic playback and transitions continue.").font(.stage(size:10)).foregroundStyle(.secondary)
             setupLockButton
-        }.padding(16).frame(width:280).preferredColorScheme(.dark)
+        }.padding(16).frame(width:280).preferredColorScheme(.dark).font(.stage(.body))
             .disabled(lock.isLocked)
     }
     private var header: some View {
         HStack(spacing:8) {
             HStack(spacing:4) {
                 HardPlayArtwork().frame(width:30,height:30)
-                VStack(alignment:.leading,spacing:-2) { Text("Hard"); Text("Play") }
-                    .font(.system(size:12,weight:.heavy,design:.rounded))
+                HardPlayWordmark()
             }.accessibilityElement(children:.ignore).accessibilityLabel("Hard Play")
             Spacer()
             if !compact {
-                Button { AppDelegate.shared.toggleWideLayout() } label: { Image(systemName:"arrow.left.and.right").frame(width:32,height:32) }
+                Button { AppDelegate.shared.toggleWideLayout() } label: { MarkerIcon(systemName:"arrow.left.and.right").frame(width:32,height:32) }
                     .buttonStyle(PlayerControlStyle()).accessibilityLabel("Toggle Wide Layout").stageHint("Wide / standard layout · drag window edges to resize").disabled(lock.isLocked)
             }
             Button {
                 if menuBar { AppDelegate.shared.popover.performClose(nil) }
                 else { AppDelegate.shared.minimize(compact ? AppDelegate.shared.miniWindow : AppDelegate.shared.mainWindow) }
-            } label: { Image(systemName:"minus").frame(width:24,height:28) }
+            } label: { MarkerIcon(systemName:"minus").frame(width:24,height:28) }
                 .buttonStyle(PlayerControlStyle()).accessibilityLabel("Minimize Window").stageHint("Minimize · restore from menu bar").disabled(lock.isLocked)
             Button {
                 if menuBar { AppDelegate.shared.detachMiniFromMenuBar() }
                 else { AppDelegate.shared.attachMiniToMenuBar(hideMain:!compact) }
-            } label: { Image(systemName:menuBar ? "pin.slash":"pin").frame(width:24,height:28) }
+            } label: { MarkerIcon(systemName:menuBar ? "pin.slash":"pin").frame(width:24,height:28) }
                 .buttonStyle(PlayerControlStyle(active:menuBar)).accessibilityLabel(menuBar ? "Detach from Menu Bar":"Attach to Menu Bar").stageHint(menuBar ? "Detach as a floating player":"Attach player to menu bar").disabled(lock.isLocked)
             if compact && !menuBar {
-                Button { placement.miniLocked.toggle() } label: { Image(systemName:placement.miniLocked ? "lock.rectangle.fill":"lock.rectangle").frame(width:24,height:28) }.buttonStyle(PlayerControlStyle(active:placement.miniLocked)).accessibilityLabel(placement.miniLocked ? "Unlock Window Position":"Lock Window Position").stageHint("Lock window position · playback stays available")
+                Button { placement.miniLocked.toggle() } label: { MarkerIcon(systemName:placement.miniLocked ? "lock.rectangle.fill":"lock.rectangle").frame(width:24,height:28) }.buttonStyle(PlayerControlStyle(active:placement.miniLocked)).accessibilityLabel(placement.miniLocked ? "Unlock Window Position":"Lock Window Position").stageHint("Lock window position · playback stays available")
             }
-            Button { player.undoEdit() } label: { Image(systemName:"arrow.uturn.backward").frame(width:24,height:28) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Undo Playlist Edit").stageHint("Undo playlist edit · ⌘Z").disabled(!player.canUndoEdit || setup.editsBlocked || lock.isLocked)
-            Button { AppDelegate.shared.showSettingsWindow() } label: { Image(systemName:"slider.horizontal.3").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Settings").stageHint("Audio, playback and button hints",below:true).disabled(lock.isLocked)
-            Button { AppDelegate.shared.toggleMini() } label: { Image(systemName:"pip").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Mini Player").stageHint("Show or hide the floating player",below:true).mapAction("mini").disabled(lock.isLocked)
-            Button { lock.lock() } label: { Image(systemName:"lock").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle(active:lock.isLocked)).accessibilityLabel("Lock Controls").stageHint("Lock controls · music keeps playing",below:true).mapAction("lock").disabled(lock.isLocked)
+            Button { player.undoEdit() } label: { MarkerIcon(systemName:"arrow.uturn.backward").frame(width:24,height:28) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Undo Playlist Edit").stageHint("Undo playlist edit · ⌘Z").disabled(!player.canUndoEdit || setup.editsBlocked || lock.isLocked)
+            Button { AppDelegate.shared.showSettingsWindow() } label: { MarkerIcon(systemName:"slider.horizontal.3").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Settings").stageHint("Audio, playback and button hints",below:true).disabled(lock.isLocked)
+            Button { AppDelegate.shared.toggleMini() } label: { MarkerIcon(systemName:"pip").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Mini Player").stageHint("Show or hide the floating player",below:true).mapAction("mini").disabled(lock.isLocked)
+            Button { lock.lock() } label: { MarkerIcon(systemName:"lock").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle(active:lock.isLocked)).accessibilityLabel("Lock Controls").stageHint("Lock controls · music keeps playing",below:true).mapAction("lock").disabled(lock.isLocked)
         }
     }
     private var transport: some View {
         HStack(spacing:compact ? 20 : 10) {
-            Button { player.previous() } label: { Image(systemName:"backward.end.fill").frame(width:42,height:42) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Previous Track").disabled(setup.selectionBlocked).stageHint("Previous track").mapAction("previous")
+            Button { player.previous() } label: { MarkerIcon(systemName:"backward.end.fill").frame(width:42,height:42) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Previous Track").disabled(setup.selectionBlocked).stageHint("Previous track").mapAction("previous")
             Button { player.toggle() } label: { HardPlayTransport(playing:player.playing,compact:compact) }.buttonStyle(HardPlayPressStyle()).accessibilityLabel(player.playing ? "Pause":"Play").disabled(setup.playbackBlocked).stageHint(player.playing ? "Pause playback" : "Play · ⌥⌘ Space").mapAction("playPause")
-            Button { player.next() } label: { Image(systemName:"forward.end.fill").frame(width:42,height:42) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Next Track").disabled(setup.selectionBlocked).stageHint("Next track").mapAction("next")
+            Button { player.next() } label: { MarkerIcon(systemName:"forward.end.fill").frame(width:42,height:42) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Next Track").disabled(setup.selectionBlocked).stageHint("Next track").mapAction("next")
             if !compact { Spacer(minLength:0); restartButtons }
         }.disabled(player.current == nil)
     }
     private var restartButtons: some View {
         HStack(spacing:6) {
-            Button { player.restart() } label: { Label("Restart",systemImage:"arrow.counterclockwise").font(.system(size:11)).padding(.horizontal,9).frame(height:34) }.buttonStyle(PlayerControlStyle(outline:.capsule)).stageHint("Restart from 0:00").mapAction("restart")
-            Button { player.resumeSaved() } label: { Label("Resume",systemImage:"play.fill").font(.system(size:11)).padding(.horizontal,9).frame(height:34) }.buttonStyle(PlayerControlStyle(active:true)).stageHint("Resume track").mapAction("resume")
+            Button { player.restart() } label: { MarkerLabel("Restart",systemImage:"arrow.counterclockwise").font(.stage(size:11)).padding(.horizontal,9).frame(height:34) }.buttonStyle(PlayerControlStyle(outline:.capsule)).stageHint("Restart from 0:00").mapAction("restart")
+            Button { player.resumeSaved() } label: { MarkerLabel("Resume",systemImage:"play.fill").font(.stage(size:11)).padding(.horizontal,9).frame(height:34) }.buttonStyle(PlayerControlStyle(active:true)).stageHint("Resume track").mapAction("resume")
         }.disabled(player.current == nil || setup.playbackBlocked)
     }
     private var settings: some View {
         VStack(alignment:.leading,spacing:14) {
             HStack {
-                Text("Audio & Playback").font(.system(size:14,weight:.semibold))
+                Text("Audio & Playback").font(.stage(size:14,weight:.semibold))
                 Spacer()
-                Button { if setup.settingsBlocked { setup.unlock() } else { setup.lockSettings() } } label: { Image(systemName:setup.settingsBlocked ? "lock.fill":"lock.open").frame(width:28,height:28) }
+                Button { if setup.settingsBlocked { setup.unlock() } else { setup.lockSettings() } } label: { MarkerIcon(systemName:setup.settingsBlocked ? "lock.fill":"lock.open").frame(width:28,height:28) }
                     .buttonStyle(PlayerControlStyle(active:setup.settingsBlocked)).accessibilityLabel(setup.settingsBlocked ? "Unlock Settings":"Lock Settings").stageHint(setup.settingsBlocked ? "Unlock settings":"Protect settings")
             }
             Group {
-            Button { AppDelegate.shared.showThemesWindow() } label: { Label("Themes & Appearance…",systemImage:"paintpalette").font(.system(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
-            Button { AppDelegate.shared.showMappings() } label: { Label("Keyboard / MIDI…",systemImage:"pianokeys").font(.system(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
-            Button { AppDelegate.shared.showBackupWindow() } label: { Label("Timecode & Backup…",systemImage:"network").font(.system(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
-            Button {AppDelegate.shared.showWebViewer()} label: {Label("Web Viewer…",systemImage:"iphone").font(.system(size:12)).padding(8)}.buttonStyle(PlayerControlStyle())
+            Button { AppDelegate.shared.showThemesWindow() } label: { MarkerLabel("Themes & Appearance…",systemImage:"paintpalette").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
+            Button { AppDelegate.shared.showMappings() } label: { MarkerLabel("Keyboard / MIDI…",systemImage:"pianokeys").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
+            Button { AppDelegate.shared.showBackupWindow() } label: { MarkerLabel("Timecode & Backup…",systemImage:"network").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
+            Button {AppDelegate.shared.showWebViewer()} label: {MarkerLabel("Web Viewer…",systemImage:"iphone").font(.stage(size:12)).padding(8)}.buttonStyle(PlayerControlStyle())
             Toggle("Show button hints",isOn:$hints.enabled)
-            Text("Turn off for a distraction-free live set.").font(.system(size:10)).foregroundStyle(.secondary)
+            Text("Turn off for a distraction-free live set.").font(.stage(size:10)).foregroundStyle(.secondary)
             Divider()
-            HStack { Image(systemName:"speaker.wave.2"); Slider(value:$player.volume,in:0...1).tint(accent).accessibilityLabel("Volume") }
+            HStack { MarkerIcon(systemName:"speaker.wave.2"); Slider(value:$player.volume,in:0...1).tint(accent).accessibilityLabel("Volume") }
             Toggle("Shuffle",isOn:$player.shuffle)
             Toggle("Repeat Queue",isOn:$player.repeatAll)
             Picker("On Play",selection:$player.startMode) { Text("Restart").tag(StartMode.beginning);Text("Resume").tag(StartMode.resume) }
@@ -503,7 +507,7 @@ struct PlayerView: View {
             if player.endMode == .stop {
                 Picker("Before End",selection:$player.stopBeforeEnd) { Text("0 s").tag(0.0);ForEach([1.0,2,3,5,10,15,30],id:\.self) { Text("\(Int($0)) s").tag($0) } }
             }
-            Text("⌥⌘ Space — play/pause · ⌘L — lock").font(.system(size:10)).foregroundStyle(.secondary)
+            Text("⌥⌘ Space — play/pause · ⌘L — lock").font(.stage(size:10)).foregroundStyle(.secondary)
             }.disabled(setup.settingsBlocked)
         }.disabled(lock.isLocked)
     }
@@ -511,11 +515,11 @@ struct PlayerView: View {
     private var queue: some View {
         ScrollView {
             LazyVStack(spacing:3) {
-                if player.tracks.isEmpty { Text("Drop your music here").font(.system(size:12)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.65)).frame(maxWidth:.infinity).padding(.vertical,25) }
+                if player.tracks.isEmpty { Text("Drop your music here").font(.stage(size:12)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.65)).frame(maxWidth:.infinity).padding(.vertical,25) }
                 ForEach(player.tracks) { track in
                     QueueTrackRow(player:player,track:track)
                 }
             }
-        }.frame(minHeight:100,maxHeight:.infinity)
+        }.frame(minHeight:compact ? 100:160,maxHeight:.infinity)
     }
 }

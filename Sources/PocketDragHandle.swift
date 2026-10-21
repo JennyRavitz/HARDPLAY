@@ -22,7 +22,7 @@ struct PocketDragHandle: NSViewRepresentable {
     final class HandleView:NSView {
         override var mouseDownCanMoveWindow:Bool { false }
         override func draw(_ dirtyRect:NSRect) {
-            ("HARD PLAY" as NSString).draw(at:NSPoint(x:0,y:(bounds.height-10)/2),withAttributes:[.font:NSFont.systemFont(ofSize:8,weight:.heavy),.foregroundColor:NSColor.white.withAlphaComponent(0.7),.kern:1])
+            ("HARDPLAY" as NSString).draw(at:NSPoint(x:0,y:(bounds.height-10)/2),withAttributes:[.font:StageTypography.native(8),.foregroundColor:NSColor.white.withAlphaComponent(0.7),.kern:1])
         }
         private var initialMouse:NSPoint?
         private var initialFrame:NSRect?
@@ -49,7 +49,7 @@ struct PocketDragHandle: NSViewRepresentable {
         override func mouseUp(with event:NSEvent) { initialMouse=nil;initialFrame=nil }
         override func resetCursorRects() { addCursorRect(bounds,cursor:FloatingPlacement.shared.pocketLocked ? .arrow:.openHand) }
     }
-    func makeNSView(context:Context)->HandleView { let view=HandleView();view.setAccessibilityElement(true);view.setAccessibilityRole(.staticText);view.setAccessibilityLabel("HARD PLAY");view.setAccessibilityHelp("Drag here to move the player anywhere");view.setAccessibilityValue("Ready to move");return view }
+    func makeNSView(context:Context)->HandleView { let view=HandleView();view.setAccessibilityElement(true);view.setAccessibilityRole(.staticText);view.setAccessibilityLabel("HARDPLAY");view.setAccessibilityHelp("Drag here to move the player anywhere");view.setAccessibilityValue("Ready to move");return view }
     func updateNSView(_ view:HandleView,context:Context){view.window?.invalidateCursorRects(for:view)}
 }
 

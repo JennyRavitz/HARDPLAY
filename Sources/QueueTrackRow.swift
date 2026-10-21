@@ -30,9 +30,9 @@ struct QueueTrackRow: View {
     var body: some View {
         HStack(spacing:10) {
             if row.editing {
-                Text(player.queueNumber(track)).font(.custom("MarkerFelt-Thin",size:19)).frame(width:26)
+                Text(player.queueNumber(track)).font(.custom(StageTypography.name,size:19)).frame(width:26)
                 TextField("Track name",text:$row.draft)
-                    .font(.system(size:15 * AppearancePreferences.shared.theme.textScale,weight:.medium)).textFieldStyle(.plain)
+                    .font(.stage(size:15 * AppearancePreferences.shared.theme.textScale,weight:.medium)).textFieldStyle(.plain)
                     .padding(.horizontal,5).padding(.vertical,5)
                     .background(accent.opacity(0.1),in:RoundedRectangle(cornerRadius:5))
                     .overlay(RoundedRectangle(cornerRadius:5).stroke(accent.opacity(0.65),lineWidth:1))
@@ -43,40 +43,40 @@ struct QueueTrackRow: View {
             } else {
                 Button { player.selectInQueue(track) } label: {
                     HStack(spacing:10) {
-                        Text(player.queueNumber(track)).font(.custom("MarkerFelt-Thin",size:19)).frame(width:26)
-                        Text(track.title).font(.system(size:15 * AppearancePreferences.shared.theme.textScale,weight:.medium)).lineLimit(2).multilineTextAlignment(.leading)
+                        Text(player.queueNumber(track)).font(.custom(StageTypography.name,size:19)).frame(width:26)
+                        Text(track.title).font(.stage(size:15 * AppearancePreferences.shared.theme.textScale,weight:.medium)).lineLimit(2).multilineTextAlignment(.leading)
                         Spacer(minLength:0)
                     }.frame(minHeight:36).contentShape(Rectangle())
                 }.buttonStyle(.plain).disabled(setup.selectionBlocked).stageHint("Select without playing · " + track.title).accessibilityLabel("Select Track: \(track.title)")
             }
             Button { player.playFromQueue(track) } label: {
-                Image(systemName:player.currentID == track.id && player.playing ? "pause.fill":"play.fill").font(.system(size:12)).frame(width:26,height:28)
+                MarkerIcon(systemName:player.currentID == track.id && player.playing ? "pause.fill":"play.fill").font(.stage(size:12)).frame(width:26,height:28)
             }.buttonStyle(PlayerControlStyle(active:player.currentID == track.id && player.playing))
                 .disabled(setup.selectionBlocked || setup.playbackBlocked).accessibilityLabel((player.currentID == track.id && player.playing ? "Pause Track: ":"Play Track: ") + track.title).mapAction("track:" + track.id)
             Button {
                 if row.editing { finishRename(save:true) } else { beginRename() }
             } label: {
-                Image(systemName:row.editing ? "checkmark":"pencil").font(.system(size:12)).frame(width:24,height:28)
+                MarkerIcon(systemName:row.editing ? "checkmark":"pencil").font(.stage(size:12)).frame(width:24,height:28)
             }.buttonStyle(.plain).foregroundStyle(accent)
                 .disabled(setup.editsBlocked)
                 .opacity(row.editing || row.hovering ? 1 : 0.65)
                 .accessibilityLabel(row.editing ? "Save Track Name" : "Rename Track: \(track.title)")
-            Button {AppDelegate.shared.showQuickEdit(track)} label: {Image(systemName:"scissors").font(.system(size:12)).frame(width:24,height:28)}.buttonStyle(.plain).foregroundStyle(accent).disabled(setup.editsBlocked).accessibilityLabel("Quick Edit: \(track.title)").stageHint("Trim audio · save a copy or replace this item",below:true)
+            Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerIcon(systemName:"scissors").font(.stage(size:12)).frame(width:24,height:28)}.buttonStyle(.plain).foregroundStyle(accent).disabled(setup.editsBlocked).accessibilityLabel("Quick Edit: \(track.title)").stageHint("Trim audio · save a copy or replace this item",below:true)
             Menu {
-                Button {AppDelegate.shared.showQuickEdit(track)} label: {Label("Quick Edit…",systemImage:"scissors")}.disabled(setup.editsBlocked)
-                Button { player.duplicate(track) } label: { Label("Duplicate Track",systemImage:"doc.on.doc") }
-                Button { beginRename() } label: { Label("Rename Track",systemImage:"pencil") }
+                Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerLabel("Quick Edit…",systemImage:"scissors")}.disabled(setup.editsBlocked)
+                Button { player.duplicate(track) } label: { MarkerLabel("Duplicate Track",systemImage:"doc.on.doc") }
+                Button { beginRename() } label: { MarkerLabel("Rename Track",systemImage:"pencil") }
                 Button("Use Filename") { player.rename(track,to:nil) }.disabled(track.customTitle == nil)
                 Divider()
                 Picker("Transition",selection:Binding(get:{player.fadeMode(after:track)},set:{player.setFadeMode($0,after:track)})) {
                     ForEach(FadeMode.allCases,id:\.self) { Text(fadeTitle($0)).tag($0) }
                 }
-                Divider(); Button { player.remove(track) } label: { Label("Remove from Queue",systemImage:"trash") }
+                Divider(); Button { player.remove(track) } label: { MarkerLabel("Remove from Queue",systemImage:"trash") }
             } label: {
-                HStack(spacing:3) { Image(systemName:"waveform.path"); Text("\(Int(player.fadeMode(after:track).seconds))s").font(.system(size:10,design:.monospaced)) }
+                HStack(spacing:3) { MarkerIcon(systemName:"waveform.path"); Text("\(Int(player.fadeMode(after:track).seconds))s").font(.stage(size:10,design:.monospaced)) }
             }.menuStyle(.borderlessButton).fixedSize().disabled(setup.editsBlocked)
                 .accessibilityLabel("Fade: \(Int(player.fadeMode(after:track).seconds)) seconds").stageHint("Track transition",below:true)
-            Button { player.remove(track) } label: { Image(systemName:"trash").font(.system(size:12)).frame(width:24,height:28) }
+            Button { player.remove(track) } label: { MarkerIcon(systemName:"trash").font(.stage(size:12)).frame(width:24,height:28) }
                 .buttonStyle(.plain).foregroundStyle(.white.opacity(0.7)).disabled(setup.editsBlocked)
                 .opacity(row.editing ? 0 : (row.hovering ? 1 : 0.65)).allowsHitTesting(!row.editing)
                 .accessibilityLabel("Remove from Queue: \(track.title)").stageHint("Remove from queue",below:true)
@@ -88,16 +88,16 @@ struct QueueTrackRow: View {
             .onChange(of:setup.editsBlocked) { _, blocked in if blocked { finishRename(save:false) } }
             .onChange(of:lock.isLocked) { _, locked in if locked { finishRename(save:false) } }
             .contextMenu {
-                Button { player.play(track) } label: { Label("Play",systemImage:"play.fill") }.disabled(setup.selectionBlocked || setup.playbackBlocked)
-                Button {AppDelegate.shared.showQuickEdit(track)} label: {Label("Quick Edit…",systemImage:"scissors")}.disabled(setup.editsBlocked)
-                Button { player.duplicate(track) } label: { Label("Duplicate Track",systemImage:"doc.on.doc") }.disabled(setup.editsBlocked)
+                Button { player.play(track) } label: { MarkerLabel("Play",systemImage:"play.fill") }.disabled(setup.selectionBlocked || setup.playbackBlocked)
+                Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerLabel("Quick Edit…",systemImage:"scissors")}.disabled(setup.editsBlocked)
+                Button { player.duplicate(track) } label: { MarkerLabel("Duplicate Track",systemImage:"doc.on.doc") }.disabled(setup.editsBlocked)
                 Divider()
-                Button { beginRename() } label: { Label("Rename Track",systemImage:"pencil") }.disabled(setup.editsBlocked)
+                Button { beginRename() } label: { MarkerLabel("Rename Track",systemImage:"pencil") }.disabled(setup.editsBlocked)
                 Button("Use Filename") { player.rename(track,to:nil) }.disabled(setup.editsBlocked || track.customTitle == nil)
                 Divider()
                 Button("Restart") { player.load(track,position:0) }.disabled(setup.selectionBlocked)
                 Button("Resume") { player.play(track) }.disabled(setup.selectionBlocked)
-                Divider(); Button { player.remove(track) } label: { Label("Remove from Queue",systemImage:"trash") }.disabled(setup.editsBlocked)
+                Divider(); Button { player.remove(track) } label: { MarkerLabel("Remove from Queue",systemImage:"trash") }.disabled(setup.editsBlocked)
             }
     }
 }

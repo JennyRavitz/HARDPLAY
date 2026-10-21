@@ -2,21 +2,25 @@ import SwiftUI
 import AppKit
 
 struct StageTheme: Codable {
-    var preset = "Stage"
+    var preset = "Tape Blue"
     var accent = "93C5F4"
-    var background = "27374B"
+    var background = "20252D"
     var text = "F2F3F6"
-    var tape = "C8C8FB"
-    var opacity = 0.65
+    var tape = "ADC9E4"
+    var opacity = 0.88
     var buttonSize = 60.0
     var textScale = 1.0
     var spacing = 14.0
     var radius = 12.0
     var texture = true
-    static let names = ["Stage", "Flightcase", "Cables", "Cinema", "Theatre", "Minimal"]
+    static let names = ["Tape Blue", "Tape White", "Tape Black", "Stage", "Flightcase", "Cables", "Cinema", "Theatre", "Minimal"]
     static func named(_ name: String) -> StageTheme {
         var t = StageTheme(); t.preset = name
         switch name {
+        case "Tape Blue": t.tape="ADC9E4";t.accent="ADC9E4";t.radius=6
+        case "Tape White": t.tape="E9E5D9";t.accent="E9E5D9";t.radius=6
+        case "Tape Black": t.tape="15181D";t.accent="C5D2E2";t.radius=6
+        case "Stage": t.background="27374B";t.tape="C8C8FB"
         case "Flightcase": t.background = "252C35"; t.accent = "BDD9ED"; t.tape = "EBCB89"; t.radius = 5
         case "Cables": t.background = "122C38"; t.accent = "7DDAEB"; t.tape = "E8BC95"; t.radius = 18
         case "Cinema": t.background = "151925"; t.accent = "E6BD83"; t.tape = "C4CBDD"; t.radius = 8
@@ -30,7 +34,15 @@ struct StageTheme: Codable {
 final class AppearancePreferences: ObservableObject {
     static let shared = AppearancePreferences()
     @Published var theme: StageTheme { didSet { if let data = try? JSONEncoder().encode(theme) { UserDefaults.standard.set(data, forKey:"stageAppearance.v1") } } }
-    init() { theme = UserDefaults.standard.data(forKey:"stageAppearance.v1").flatMap { try? JSONDecoder().decode(StageTheme.self,from:$0) } ?? StageTheme() }
+    init() {
+        let defaults=UserDefaults.standard
+        let prior=defaults.data(forKey:"stageAppearance.v1")
+        if !defaults.bool(forKey:"markerStyle.v1") {
+            if let prior {defaults.set(prior,forKey:"stageAppearance.beforeMarker.v1")}
+            theme = .named("Tape Blue");defaults.set(true,forKey:"markerStyle.v1")
+            if let data=try? JSONEncoder().encode(theme) {defaults.set(data,forKey:"stageAppearance.v1")}
+        } else {theme=prior.flatMap {try? JSONDecoder().decode(StageTheme.self,from:$0)} ?? .named("Tape Blue")}
+    }
     func color(_ key: WritableKeyPath<StageTheme,String>) -> Binding<Color> {
         Binding(get:{ Color(stageHex:self.theme[keyPath:key]) },set:{ color in
             guard let c = NSColor(color).usingColorSpace(.sRGB) else { return }
@@ -54,7 +66,7 @@ struct ThemedBackdrop: View {
                     Canvas { ctx,size in
                         let color = Color(stageHex:t.accent).opacity(0.055)
                         switch t.preset {
-                        case "Flightcase":
+                        case "Flightcase", "Tape Blue", "Tape White", "Tape Black":
                             for x in stride(from:8.0,to:size.width,by:24) { for y in stride(from:8.0,to:size.height,by:24) { ctx.fill(Path(ellipseIn:CGRect(x:x,y:y,width:2,height:2)),with:.color(color)) } }
                         case "Cables":
                             for i in 0..<7 { var p=Path(); let y=CGFloat(i)*110; p.move(to:CGPoint(x:0,y:y)); p.addCurve(to:CGPoint(x:size.width,y:y+90),control1:CGPoint(x:size.width*0.65,y:y-80),control2:CGPoint(x:size.width*0.3,y:y+190)); ctx.stroke(p,with:.color(color),lineWidth:3) }
@@ -78,12 +90,13 @@ struct ThemeEditorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment:.leading,spacing:16) {
-                Text("Themes & Appearance").font(.title2.bold())
-                Text("Live preview in the player. Settings stay open.").font(.callout).foregroundStyle(.secondary)
+                Text("Themes & Appearance").font(.stage(.title2).bold())
+                Text("Marker lettering · hand-drawn icons · three tape colors. Live preview stays in the player.").font(.stage(.callout)).foregroundStyle(.secondary)
+                HStack {HardPlayWordmark();Spacer();HardPlayWordmark(layout:.stacked)}
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:8) {
                     ForEach(StageTheme.names,id:\.self) { name in
                         Button { appearance.theme = .named(name) } label: {
-                            HStack { Circle().fill(Color(stageHex:StageTheme.named(name).accent)).frame(width:12,height:12);Text(name);Spacer();if appearance.theme.preset == name { Image(systemName:"checkmark") } }.padding(9)
+                            HStack { Circle().fill(Color(stageHex:StageTheme.named(name).accent)).frame(width:12,height:12);Text(name);Spacer();if appearance.theme.preset == name { MarkerIcon(systemName:"checkmark") } }.padding(9)
                         }.buttonStyle(PlayerControlStyle(active:appearance.theme.preset == name))
                     }
                 }
@@ -98,8 +111,8 @@ struct ThemeEditorView: View {
                 adjustment("Spacing",value:$appearance.theme.spacing,range:8...22,suffix:" px")
                 adjustment("Corner radius",value:$appearance.theme.radius,range:0...24,suffix:" px")
                 Toggle("Scenic texture",isOn:$appearance.theme.texture)
-                Button("Reset to Stage") { appearance.theme = StageTheme() }.buttonStyle(.bordered)
-                Text("Saved automatically on this Mac.").font(.caption).foregroundStyle(.secondary)
+                Button("Reset to Tape Blue") { appearance.theme = .named("Tape Blue") }.buttonStyle(.bordered)
+                Text("Saved automatically on this Mac.").font(.stage(.caption)).foregroundStyle(.secondary)
             }.padding(22).disabled(setup.settingsBlocked || lock.isLocked)
         }.frame(minWidth:360,minHeight:500).foregroundStyle(Color(stageHex:appearance.theme.text))
     }
