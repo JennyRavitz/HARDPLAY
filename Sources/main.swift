@@ -770,7 +770,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         miniWindow.appearance = NSAppearance(named: .darkAqua)
         miniWindow.title = "Hard Play Mini"; miniWindow.titleVisibility = .hidden; miniWindow.titlebarAppearsTransparent = true
         miniWindow.standardWindowButton(.closeButton)?.isHidden = true
-        miniWindow.isMovableByWindowBackground = true; miniWindow.level = .floating
+        miniWindow.isMovableByWindowBackground = true;miniWindow.isMovable = !FloatingPlacement.shared.miniLocked; miniWindow.level = .floating
         miniWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         miniWindow.hidesOnDeactivate = false; miniWindow.isReleasedWhenClosed = false; miniWindow.delegate = self
         miniWindow.contentView = NSHostingView(rootView: PlayerView(compact: true).padding(.top, 8).background(ThemedBackdrop()))
@@ -793,12 +793,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mappingWindow.appearance = NSAppearance(named:.darkAqua)
         mappingWindow.contentView = NSHostingView(rootView:MappingView().background(ThemedBackdrop()))
         mappingWindow.setFrameAutosaveName("HARDPLAY.mappings")
-        pocketWindow = FloatingPanel(contentRect:NSRect(x:100,y:100,width:192,height:296),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+        pocketWindow = FloatingPanel(contentRect:NSRect(x:100,y:100,width:344,height:296),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
         pocketWindow.isOpaque=false;pocketWindow.backgroundColor = .clear;pocketWindow.level = .floating
         pocketWindow.title="Hard Play Pocket";pocketWindow.hasShadow=true;pocketWindow.isMovableByWindowBackground=true;pocketWindow.hidesOnDeactivate=false;pocketWindow.isReleasedWhenClosed=false
         pocketWindow.collectionBehavior=[.canJoinAllSpaces,.fullScreenAuxiliary]
         pocketWindow.contentView=NSHostingView(rootView:PocketPlayerView())
+        pocketWindow.delegate=self;pocketWindow.isMovable = !FloatingPlacement.shared.pocketLocked
         pocketWindow.setFrameAutosaveName("HARDPLAY.pocket")
+        if !pocketWindow.setFrameUsingName("HARDPLAY.pocket"),let frame=NSScreen.main?.visibleFrame { pocketWindow.setFrameOrigin(NSPoint(x:frame.maxX-360,y:frame.minY+24)) }
+        pocketWindow.setContentSize(NSSize(width:344,height:296))
         settingsWindow = utilityWindow(title:"Hard Play Settings",width:370,height:500)
         settingsWindow.contentView = NSHostingView(rootView:PlayerView(settingsOnly:true).padding(20).background(ThemedBackdrop()).preferredColorScheme(.dark))
         themesWindow = utilityWindow(title:"Hard Play Themes",width:410,height:760)
@@ -905,7 +908,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         status.button?.setAccessibilityLabel("Hard Play — \(badge.title)")
     }
     func windowDidMove(_ notification:Notification) {
-        if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window) }
+        if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window);if window === pocketWindow { window.saveFrame(usingName:"HARDPLAY.pocket") } else if window === miniWindow { window.saveFrame(usingName:"HARDPLAY.stage.minimal.mini") } }
     }
     func windowDidResize(_ notification:Notification) {
         if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window) }
@@ -914,7 +917,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func windowDidDeminiaturize(_ notification:Notification) { ControlMappings.shared.refreshStates() }
     @objc func lockControls() { ControlLock.shared.lock(); showMain() }
     func showPocket() {
-        if !pocketWindow.isVisible,let screen=mainWindow.screen ?? NSScreen.main { let frame=screen.visibleFrame;pocketWindow.setFrameOrigin(NSPoint(x:frame.maxX-210,y:frame.minY+24)) }
+        // Preserve the user's position, including when the widget is hidden and restored.
+        if !NSScreen.screens.contains(where:{$0.visibleFrame.contains(pocketWindow.frame)}),let screen=NSScreen.main { pocketWindow.setFrame(pocketWindow.constrainFrameRect(pocketWindow.frame,to:screen),display:false) }
         pocketWindow.orderFront(nil)
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool {

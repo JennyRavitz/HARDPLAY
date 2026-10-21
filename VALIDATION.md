@@ -163,3 +163,11 @@ Web UI verified all six preset controls, simultaneous main/settings/themes panel
 Web UI imported a 12-second silent test fixture, duplicated it, removed the copy, undid removal, verified both items Saved Offline and played the restored copy. Minimize kept playback in the pocket widget with the track/time and restore control. Native companion is an actual floating panel; the web companion remains inside the browser page.
 
 Earlier in the same update, web UI verified seek tooltip 0:00/0:06/0:12 without changing the seek value, all four drawer sides, My Set show/hide and detach/dock. Native hover and four-side drawer source compiled; native pointer-hover and multi-monitor anchoring have not been fully exercised. GitHub Actions startup failure from the prior release is not claimed repaired.
+
+## 0.15.1 — explicit locks and display-bezel sensor
+
+Web UI: moved the pocket widget, fixed its position, attempted dragging again and verified unchanged x/y; reload restored the same position and fixed state. The left display-bezel sensor opens and closes the panel. Controls Locked and Controls Available are visibly distinct; holding for 1.2 seconds returned to Available and stayed unlocked after mouse release. Position Fixed is independently labelled while buttons remain on. The original relock bug was caused by the release click entering the Lock action after the hold timer unlocked; that click is now consumed.
+
+Native: dedicated AppKit mouse/keyboard hold view avoids competing SwiftUI Button and long-press gestures. Release build/self/queue checks pass; transparent display-bezel hit area, explicit position/control state rows, saved window position, isMovable position protection and regular-mini position lock are implemented. Final native pointer/hold validation is pending because the Mac was locked; no successful native hold test is claimed yet.
+
+Cleanup: closed old localhost preview tabs and Drawer QA, stopped owned preview servers 4190–4194. One preview server remains temporarily for verification. An older real HARDPLAY process was discovered at the same build path; the locked Mac prevented its normal UI quit/relaunch. Do not confuse its old runtime with the rebuilt 0.15.1 files.

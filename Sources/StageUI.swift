@@ -235,6 +235,7 @@ struct PlayerView: View {
     @ObservedObject var setup = SetupLock.shared
     @ObservedObject var playlistWindow = PlaylistWindowState.shared
     @ObservedObject var hints = HintPreferences.shared
+    @ObservedObject var placement = FloatingPlacement.shared
     var compact = false
     var settingsOnly = false
     @ObservedObject var appearance = AppearancePreferences.shared
@@ -463,6 +464,9 @@ struct PlayerView: View {
                 else { AppDelegate.shared.attachMiniToMenuBar(hideMain:!compact) }
             } label: { Image(systemName:menuBar ? "pin.slash":"pin").frame(width:24,height:28) }
                 .buttonStyle(PlayerControlStyle(active:menuBar)).accessibilityLabel(menuBar ? "Detach from Menu Bar":"Attach to Menu Bar").stageHint(menuBar ? "Detach as a floating player":"Attach player to menu bar").disabled(lock.isLocked)
+            if compact && !menuBar {
+                Button { placement.miniLocked.toggle() } label: { Image(systemName:placement.miniLocked ? "lock.rectangle.fill":"lock.rectangle").frame(width:24,height:28) }.buttonStyle(PlayerControlStyle(active:placement.miniLocked)).accessibilityLabel(placement.miniLocked ? "Unlock Window Position":"Lock Window Position").stageHint("Lock window position · playback stays available")
+            }
             Button { player.undoEdit() } label: { Image(systemName:"arrow.uturn.backward").frame(width:24,height:28) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Undo Playlist Edit").stageHint("Undo playlist edit · ⌘Z").disabled(!player.canUndoEdit || setup.editsBlocked || lock.isLocked)
             Button { AppDelegate.shared.showSettingsWindow() } label: { Image(systemName:"slider.horizontal.3").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Settings").stageHint("Audio, playback and button hints",below:true).disabled(lock.isLocked)
             Button { AppDelegate.shared.toggleMini() } label: { Image(systemName:"pip").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Mini Player").stageHint("Show or hide the floating player",below:true).mapAction("mini").disabled(lock.isLocked)

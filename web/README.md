@@ -73,3 +73,7 @@ The − player button folds it into a draggable **Pocket Player** inside the pag
 Undo Playlist Edit (↶ / Command-Z or Ctrl-Z) and Redo (Shift-Command-Z) retain 30 session edits. Queue edits and playback-policy settings can be restored; deletion Undo restores cached audio for the item. History resets when reloading. Transport and disk exports are not undone. Appearance can be reset to Stage independently.
 
 My Set toggles a playlist drawer, with Below / Right / Left / Above placement and explicit Separate Window. Narrow screens stack the panels. Hover the seek bar for time inspection; only clicking/dragging seeks.
+
+### Pocket position and lock panel (0.15.1)
+
+Tap the left bezel beside the display to open/close the side panel. Position and Controls have explicit labels and states; the display also reports whether position is fixed and buttons are available. Drag the top grip while Position is Unlocked. Fixed prevents dragging and persists with the position after reload. Lock Controls blocks transport; hold its button for one second to unlock. A completed unlock consumes the release click so it cannot immediately relock. At the left viewport edge the panel moves over the bezel to stay reachable.

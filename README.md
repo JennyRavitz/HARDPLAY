@@ -8,7 +8,7 @@ Hard Play is a stage audio player for macOS, with an installable offline web edi
 
 Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/latest). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
-- **macOS 14 Sonoma or newer.** The downloadable 0.15.0 build is for **Apple Silicon (arm64)**. Intel Macs can build the source locally; this release is not a universal binary.
+- **macOS 14 Sonoma or newer.** The downloadable 0.15.1 build is for **Apple Silicon (arm64)**. Intel Macs can build the source locally; this release is not a universal binary.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.
 - Native playback of local audio needs no network connection. Cloud-only files must first be downloaded to the Mac.
 - The app displays an ordinary Dock icon and also provides a menu bar player.
@@ -95,3 +95,9 @@ Minimize the main/mini window to reveal **Hard Play Pocket**, a draggable floati
 **Undo Playlist Edit** (↶ / Command-Z) and **Redo** (Shift-Command-Z) retain 30 queue edits during this app session: add, duplicate, rename, remove and fades. Undo does not restart live playback; restoring a removed current item loads it paused. The setup lock protects these actions. File saves and transport actions are not reversed.
 
 Hover the seek bar to inspect the time without seeking. **My Set** toggles an attached playlist drawer without hiding the player; choose Below / Right / Left / Above or Separate Window. Docked native windows follow their owner, within the available display area.
+
+### Pocket locks (0.15.1)
+
+Tap the **left bezel beside the pocket display** to slide out the Locks panel; tap the same area again to hide it. There is no tiny icon to aim for. Position and Controls are separate, labelled controls: **Unlocked / Fixed** and **Available / Locked**. The display keeps a short state summary even when the panel is hidden.
+
+Drag the pocket player anywhere using its top/body background while Position is unlocked. The position and position lock persist. The regular floating Mini Player also has its own position lock. Fixing position does not disable playback. Lock Controls disables playback/skip; hold **Hold to unlock** for one second to unlock. The native hold control owns the entire gesture so mouse release cannot relock it.
