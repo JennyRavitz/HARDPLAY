@@ -32,6 +32,8 @@ final class Player: ObservableObject {
     @Published private(set) var playlistName = "My Set"
     @Published private(set) var recentPlaylists: [URL] = []
     @Published var selectedID: String?
+    @Published private(set) var activeDeckRight=false
+    private var deckTrackID:String?
     @Published var currentID: String?
     @Published var playing = false
     @Published var elapsed: Double = 0
@@ -109,6 +111,7 @@ final class Player: ObservableObject {
             }
         }
         if let savedID = defaults.string(forKey: "current") { currentID = restoredTrackIDs[savedID] ?? savedID }
+        activeDeckRight=defaults.bool(forKey:"activeDeckRight");deckTrackID=currentID
         selectedID = defaults.string(forKey:"selectedTrack").map { restoredTrackIDs[$0] ?? $0 } ?? currentID
         if !tracks.contains(where:{$0.id == selectedID}) { selectedID = currentID ?? tracks.first?.id }
         restoredTime = defaults.double(forKey: "elapsed")
@@ -142,13 +145,13 @@ final class Player: ObservableObject {
         }
     }
     private struct QueueEdit {
-        var tracks:[Track];var modes:[String:FadeMode];var positions:[String:Double];var bookmarks:[String:Data];var selected:String?;var name:String;var url:URL?
+        var tracks:[Track];var modes:[String:FadeMode];var positions:[String:Double];var bookmarks:[String:Data];var selected:String?;var name:String;var url:URL?;var deckRight:Bool
     }
     private var pastEdits:[QueueEdit] = []
     private var futureEdits:[QueueEdit] = []
     var canUndoEdit:Bool { !pastEdits.isEmpty }
     var canRedoEdit:Bool { !futureEdits.isEmpty }
-    private func editSnapshot()->QueueEdit { QueueEdit(tracks:tracks,modes:transitionModes,positions:positions,bookmarks:bookmarks,selected:selectedID,name:playlistName,url:playlistURL) }
+    private func editSnapshot()->QueueEdit { QueueEdit(tracks:tracks,modes:transitionModes,positions:positions,bookmarks:bookmarks,selected:selectedID,name:playlistName,url:playlistURL,deckRight:activeDeckRight) }
     private func recordEdit() { pastEdits.append(editSnapshot());if pastEdits.count>30 { pastEdits.removeFirst() };futureEdits=[];objectWillChange.send() }
     func undoEdit() {
         guard !setupLock.editsBlocked,!ControlLock.shared.isLocked,let edit=pastEdits.popLast() else { return }
@@ -162,6 +165,7 @@ final class Player: ObservableObject {
         cancelCrossfade()
         if !edit.tracks.contains(where:{$0.id == currentID}) || edit.tracks.first(where:{$0.id == currentID})?.url != current?.url { pause();loadingTask?.cancel();engine.replaceCurrentItem(with:nil);currentID=nil;elapsed=0;duration=0 }
         playlistURL=edit.url.flatMap {FileManager.default.fileExists(atPath:$0.path) ? $0:nil};playlistName=edit.name;tracks=edit.tracks;transitionModes=edit.modes;positions.merge(edit.positions) { current,_ in current };bookmarks=edit.bookmarks;selectedID=edit.selected
+        if current == nil {activeDeckRight=edit.deckRight;deckTrackID=nil}
         if current == nil,let first=selectedTrack ?? tracks.first { load(first,autoplay:false,position:positions[first.id] ?? 0) }
         persist();nowPlaying();objectWillChange.send()
     }
@@ -202,6 +206,24 @@ final class Player: ObservableObject {
         applyMixVolumes()
     }
     var nextTrack: Track? { upcomingTrack() }
+    /// Physical decks alternate only when a different queue occurrence is loaded.
+    private func commitDeck(_ id:String) {
+        if let previous=deckTrackID,previous != id {activeDeckRight.toggle()}
+        deckTrackID=id
+    }
+    private func resetDecks() {activeDeckRight=false;deckTrackID=nil}
+    /// Existing stageLeft/stageRight values describe outgoing/current and incoming/next roles.
+    /// This mapping places those roles on the physical left/right deck without changing audio routing.
+    func deckUsesNextRole(right:Bool)->Bool {isCrossfading ? right == activeDeckRight:right != activeDeckRight}
+    func deckTrack(right:Bool)->Track? {deckUsesNextRole(right:right) ? stageRight:stageLeft}
+    func deckTime(right:Bool)->Double {deckUsesNextRole(right:right) ? stageRightTime:stageLeftTime}
+    func deckDuration(right:Bool)->Double {deckUsesNextRole(right:right) ? stageRightDuration:stageLeftDuration}
+    func deckGain(right:Bool)->Double {deckUsesNextRole(right:right) ? stageRightGain:stageLeftGain}
+    func deckLabel(right:Bool)->String {
+        let next=deckUsesNextRole(right:right)
+        return isCrossfading ? (next ? "INCOMING":"OUTGOING"):(next ? "NEXT":"NOW")
+    }
+    func deckIsCurrent(right:Bool)->Bool {right == activeDeckRight}
     var stageLeft: Track? { isCrossfading ? outgoingTrack.flatMap { outgoing in tracks.first { $0.id == outgoing.id } ?? outgoing } : current }
     var stageRight: Track? { isCrossfading ? current : nextTrack }
     var stageLeftTime: Double { isCrossfading ? (outgoing?.currentTime().seconds ?? 0) : elapsed }
@@ -329,6 +351,7 @@ final class Player: ObservableObject {
         outgoing = engine; engine = ready.player; prepared = nil; preparationID = nil; manualPreparation = false
         if selectedID == nil || selectedID == currentID { selectedID=ready.track.id }
         waveformCues.removeValue(forKey:ready.track.id)
+        commitDeck(ready.track.id)
         currentID = ready.track.id; duration = ready.duration; elapsed = ready.position; stoppedAtBoundary = false; lastCheckpoint = -1; error = nil
         fadeLength = length; fadeStart = ready.position; fadeProgress = 0; isCrossfading = true
         installTimeObserver(); configureEndBoundary(); watchFailure(of: engine.currentItem!); applyMixVolumes()
@@ -352,6 +375,7 @@ final class Player: ObservableObject {
         let d = defaults
         d.set(try? JSONEncoder().encode(tracks), forKey: "queue")
         d.set(currentID, forKey: "current")
+        d.set(activeDeckRight,forKey:"activeDeckRight")
         d.set(selectedID,forKey:"selectedTrack")
         d.set(elapsed, forKey: "elapsed")
         d.set(volume, forKey: "volume")
@@ -436,7 +460,7 @@ final class Player: ObservableObject {
         pause(); loadingTask?.cancel(); failureObservation = nil; cancelCrossfade(); clearEndBoundary()
         engine.replaceCurrentItem(with:nil); isLoading = false
         restoring = true
-        waveformCues.removeAll(); tracks = resolved; selectedID=file.highlightedIndex.flatMap { resolved.indices.contains($0) ? resolved[$0].id:nil }; currentID = nil; elapsed = 0; duration = 0; positions = savedPositions; bookmarks = savedBookmarks; transitionModes = modes
+        resetDecks();waveformCues.removeAll(); tracks = resolved; selectedID=file.highlightedIndex.flatMap { resolved.indices.contains($0) ? resolved[$0].id:nil }; currentID = nil; elapsed = 0; duration = 0; positions = savedPositions; bookmarks = savedBookmarks; transitionModes = modes
         startMode = file.options.startMode; endMode = file.options.endMode; stopBeforeEnd = file.options.stopBeforeEnd
         shuffle = file.options.shuffle; repeatAll = file.options.repeatAll
         notePlaylist(url);playlistName=file.name.isEmpty ? "My Set":String(file.name.prefix(100)); restoring = false
@@ -452,7 +476,7 @@ final class Player: ObservableObject {
         engine.replaceCurrentItem(with:nil);isLoading=false;restoredTime=0;stoppedAtBoundary=false
         let clean=String(name.replacingOccurrences(of:"\n",with:" ").replacingOccurrences(of:"\r",with:" ").trimmingCharacters(in:.whitespacesAndNewlines).prefix(100))
         playlistURL=nil;playlistName=clean.isEmpty ? "My Set":clean
-        tracks=[];selectedID=nil;currentID=nil;elapsed=0;duration=0
+        resetDecks();tracks=[];selectedID=nil;currentID=nil;elapsed=0;duration=0
         waveformCues.removeAll();positions.removeAll();bookmarks.removeAll();transitionModes.removeAll();error=nil
         persist();nowPlaying()
     }
@@ -542,6 +566,7 @@ final class Player: ObservableObject {
         loadingTask?.cancel(); failureObservation = nil
         clearEndBoundary(); isLoading = true; stoppedAtBoundary = false; lastCheckpoint = -1
         if selectedID == nil || selectedID == currentID { selectedID=track.id }
+        commitDeck(track.id)
         engine.pause(); playing = false; elapsed = 0; duration = 0; currentID = track.id; error = nil
         let attributes = try? FileManager.default.attributesOfItem(atPath: track.url.path)
         let fileIssue: String?

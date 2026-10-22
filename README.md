@@ -6,7 +6,7 @@ Hard Play is a stage audio player for macOS, with an installable offline web edi
 
 ## Download and install on Mac
 
-Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.24.1). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
+Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.25.0). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
 - **macOS 14 Sonoma or newer.** Packaged builds are for **Apple Silicon (arm64)**. Intel Macs can build the source locally; these packages are not universal binaries.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.
@@ -31,7 +31,7 @@ PATCH contains **Lock Controls**, the circular unlock ring, **Lock Setup**, Mini
 
 ## Main controls
 
-- Two decks show NOW / NEXT, queue numbers, actual decoded waveforms, time and crossfade gains.
+- Two physical decks alternate left/right on each track change. The current deck is marked soft green, the next deck soft red, with NOW / NEXT labels, queue numbers, actual decoded waveforms, time and crossfade gains. During a fade, INCOMING / OUTGOING identify both tracks. Restarting or seeking the same track keeps its side. The active side survives restarting the app.
 - **↔ / Wide Layout** switches to a wide workspace: playback left, playlist right. Resize the native main window by its edges. The web layout adapts to the available browser width.
 - The changing **window icon** embeds or separates the playlist in one click. Docking remains available. Both views use the same queue.
 - Selecting a title only selects it. Use the row’s **▶** to play. Right-click → **Duplicate Track** creates an independent queue occurrence.

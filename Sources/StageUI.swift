@@ -121,29 +121,30 @@ struct StageDeck: View {
     let track: Track?
     let right: Bool
     let compact: Bool
-    var actualDuration: Double { (right ? player.stageRightDuration : player.stageLeftDuration) > 0 ? (right ? player.stageRightDuration : player.stageLeftDuration) : (track.flatMap { waves.cache[Waveforms.key($0)]?.duration } ?? 0) }
-    var elapsed: Double { right ? player.stageRightTime : player.stageLeftTime }
-    var gain: Double { right ? player.stageRightGain : player.stageLeftGain }
-    var seekable: Bool { track != nil && (right ? player.isCrossfading : !player.isCrossfading) }
+    var nextRole:Bool {player.deckUsesNextRole(right:right)}
+    var roleColor:Color {track == nil ? .gray:Color(stageHex:player.deckIsCurrent(right:right) ? "78CBA5":"E49A9A")}
+    var actualDuration:Double {player.deckDuration(right:right)>0 ? player.deckDuration(right:right):(track.flatMap {waves.cache[Waveforms.key($0)]?.duration} ?? 0)}
+    var elapsed:Double {player.deckTime(right:right)}
+    var gain:Double {player.deckGain(right:right)}
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline) {
                 Text(player.queueNumber(track)).font(.custom(StageTypography.name, size: compact ? 24 : 28)).monospacedDigit()
                 Spacer()
-                Text(right ? (player.isCrossfading ? "INCOMING" : "NEXT") : (player.isCrossfading ? "OUTGOING" : "NOW"))
-                    .font(.stage(size: 9, weight: .semibold)).tracking(1).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.65))
+                HStack(spacing:5) {Circle().fill(roleColor).frame(width:5,height:5);Text(player.deckLabel(right:right))}
+                    .font(.stage(size: 9, weight: .semibold)).tracking(1).foregroundStyle(roleColor).padding(.horizontal,7).padding(.vertical,4).background(roleColor.opacity(0.12),in:Capsule())
             }
-            Text(track?.title ?? (right ? "End of Queue" : "Add your music"))
+            Text(track?.title ?? (nextRole ? "End of Queue" : "Add your music"))
                 .font(.stage(size: (compact ? 13 : 16) * AppearancePreferences.shared.theme.textScale, weight: .semibold)).lineLimit(2).frame(height:(compact ? 34 : 40) * AppearancePreferences.shared.theme.textScale,alignment:.topLeading).stageHint(track?.title ?? "No track selected")
             HStack { Text("\(timeLabel(elapsed)) / \(timeLabel(actualDuration))"); Spacer(); Text("\(Int(gain * 100))%") }
                 .font(.stage(size: 10, design: .monospaced)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.7))
-            StageWaveform(identity:track?.id ?? "empty",peaks:track.flatMap { waves.cache[Waveforms.key($0)]?.peaks } ?? [],duration:actualDuration,elapsed:elapsed,gain:gain,color:right ? tapeB:accent,enabled:track != nil && !ControlLock.shared.isLocked && !SetupLock.shared.playbackBlocked) { seconds,play in
+            StageWaveform(identity:track?.id ?? "empty",peaks:track.flatMap { waves.cache[Waveforms.key($0)]?.peaks } ?? [],duration:actualDuration,elapsed:elapsed,gain:gain,color:roleColor,enabled:track != nil && !ControlLock.shared.isLocked && !SetupLock.shared.playbackBlocked) { seconds,play in
                 if let track {player.waveformAction(track,seconds:seconds,duration:actualDuration,play:play)}
             }.frame(height:compact ? 42:50)
-                .stageHint(right && !player.isCrossfading ? "Hover: time · Click: set next start · Double-click: play here" : "Hover: time · Click or drag: seek · Double-click: play here")
+                .stageHint(nextRole && !player.isCrossfading ? "Hover: time · Click: set next start · Double-click: play here" : "Hover: time · Click or drag: seek · Double-click: play here")
             GeometryReader { g in
                 Rectangle().fill(.white.opacity(0.1)).overlay(alignment: .leading) {
-                    Rectangle().fill(right ? tapeB : accent).frame(width: g.size.width * gain)
+                    Rectangle().fill(roleColor).frame(width: g.size.width * gain)
                 }
             }.frame(height: 3)
 
@@ -151,7 +152,7 @@ struct StageDeck: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(LinearGradient(colors:[Color.black.opacity(0.24),Color.white.opacity(0.035)],startPoint:.top,endPoint:.bottom),in:RoundedRectangle(cornerRadius:appearance.theme.radius))
-        .overlay(RoundedRectangle(cornerRadius:appearance.theme.radius).stroke(.white.opacity(0.09),lineWidth:1))
+        .overlay(RoundedRectangle(cornerRadius:appearance.theme.radius).stroke(roleColor.opacity(track == nil ? 0.15:0.55),lineWidth:1.5))
         .contextMenu {
             if let track {
                 Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerLabel("Edit Audio…",systemImage:"scissors")}
@@ -342,13 +343,13 @@ struct PlayerView: View {
     private var playbackPanel: some View {
         VStack(spacing:10) {
                 HStack(alignment: .top, spacing: 10) {
-                    StageDeck(player: player, track: player.stageLeft, right: false, compact: compact).disabled(lock.isLocked).allowsHitTesting(!lock.isLocked)
-                    StageDeck(player: player, track: player.stageRight, right: true, compact: compact).disabled(lock.isLocked).allowsHitTesting(!lock.isLocked)
+                    StageDeck(player: player, track: player.deckTrack(right:false), right: false, compact: compact).disabled(lock.isLocked).allowsHitTesting(!lock.isLocked)
+                    StageDeck(player: player, track: player.deckTrack(right:true), right: true, compact: compact).disabled(lock.isLocked).allowsHitTesting(!lock.isLocked)
                 }.padding(.trailing,16).overlay(alignment:.trailing) {
                     PatchHoldEdge {withAnimation(.easeInOut(duration:0.22)) {ui.patchOpen.toggle()}}.frame(width:14).disabled(false)
                 }
                 HStack(spacing: 8) {
-                    Text("\(player.queueNumber(player.stageLeft)) → \(player.queueNumber(player.stageRight))").font(.stage(size: 10, design: .monospaced))
+                    Text("\(player.queueNumber(player.deckTrack(right:false))) · \(player.queueNumber(player.deckTrack(right:true)))").font(.stage(size: 10, design: .monospaced))
                     GeometryReader { g in
                         Capsule().fill(.white.opacity(0.1)).overlay(alignment: .leading) {
                             Capsule().fill(LinearGradient(colors: [accent,tapeB], startPoint: .leading, endPoint: .trailing)).frame(width: g.size.width * (player.isCrossfading ? player.fadeProgress : 0))

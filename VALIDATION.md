@@ -246,3 +246,10 @@ No new raster artwork or animated backgrounds are added. The existing licensed P
 ## 0.24.1 two-second PATCH access
 
 The edge-hold duration is changed from 3 to 2 seconds; progress uses monotonic system uptime and the existing 20 ms timer. Early release and moving outside the strip retain cancellation behavior. Build/self/queue/style checks pass and DMG/ZIP checksums match. The running native app exposes the updated two-second accessibility hint. A physical timed-pointer check could not complete because the computer-use service returned noWindowsAvailable after the screenshot; exact physical-event timing is not claimed as measured.
+
+
+## 0.25.0 alternating deck roles
+
+Build/self/queue/style, waveform, playlist lifecycle, button-mode and workspace checks pass. The waveform check now covers three queue occurrences, left→right→left movement, selection/restart stability, the opposite next deck after a hard transition, both directions of real AVPlayer crossfades on generated silent PCM, waveform cues/seeking for both roles and restoration of left and right active-side states. Existing outgoing/current and incoming/next audio roles remain separate from their physical presentation.
+
+With the user's explicit permission for a brief playback interruption, the actual app was restarted and Remember resumed at its saved position. Native GUI verified the current card's green NOW badge, green waveform/gain/rim, neutral empty NEXT card, and the queue-number strip without a fixed rightward arrow. The user's queue/audio files were not changed for this visual check. The red NEXT styling is implemented in the same role-colour mapping; a red populated NEXT card and live leftward crossfade were not additionally exercised in the user's active session. Local screenshot build/HARDPLAY-0.25-decks.png is excluded from the source export.

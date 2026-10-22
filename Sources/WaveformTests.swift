@@ -35,13 +35,15 @@ import AVFoundation
         memset(buffer.floatChannelData![0],0,576000*MemoryLayout<Float>.size)
         try out.write(from:buffer)
     }
-    let first=Track(url:file,occurrenceID:"one"),second=Track(url:file,occurrenceID:"two")
-    player.tracks=[first,second];player.volume=0
+    let first=Track(url:file,occurrenceID:"one"),second=Track(url:file,occurrenceID:"two"),third=Track(url:file,occurrenceID:"three")
+    player.tracks=[first,second,third];player.volume=0
     func waitLoaded() async throws {
         for _ in 0..<200 {if !player.isLoading {break};try await Task.sleep(nanoseconds:20_000_000)}
         precondition(!player.isLoading && player.error == nil)
     }
     player.load(first,autoplay:false);try await waitLoaded()
+    precondition(!player.activeDeckRight && player.deckTrack(right:false)?.id == first.id && player.deckTrack(right:true)?.id == second.id)
+    player.selectInQueue(third);precondition(!player.activeDeckRight && player.currentID == first.id)
     player.waveformAction(first,seconds:4,duration:12,play:false)
     precondition(abs(player.elapsed-4)<0.05 && !player.playing)
     player.waveformAction(second,seconds:7,duration:12,play:false)
@@ -53,6 +55,8 @@ import AVFoundation
     protection.unlock()
     player.next(automatic:true);try await waitLoaded();player.pause()
     precondition(player.currentID == second.id && abs(player.elapsed-7)<0.3 && player.waveformCues[second.id] == nil)
+    precondition(player.activeDeckRight && player.deckTrack(right:true)?.id == second.id && player.deckTrack(right:false)?.id == third.id)
+    precondition(player.deckLabel(right:false)=="NEXT" && player.deckLabel(right:true)=="NOW")
     player.waveformAction(first,seconds:3,duration:12,play:true);try await waitLoaded()
     precondition(player.currentID == first.id && abs(player.elapsed-3)<0.3)
     player.pause()
@@ -62,6 +66,9 @@ import AVFoundation
     player.toggle();player.play(second)
     for _ in 0..<200 {if player.isCrossfading {break};try await Task.sleep(nanoseconds:20_000_000)}
     precondition(player.isCrossfading && player.currentID == second.id && abs(player.elapsed-5)<0.5 && player.waveformCues[second.id] == nil)
+    precondition(player.activeDeckRight && player.deckTrack(right:false)?.id == first.id && player.deckTrack(right:true)?.id == second.id)
+    precondition(player.deckLabel(right:false)=="OUTGOING" && player.deckLabel(right:true)=="INCOMING")
+    precondition(player.deckGain(right:false)>0 && player.deckDuration(right:true)>0)
     player.waveformAction(first,seconds:2,duration:12,play:false)
     precondition(player.isCrossfading && player.currentID == second.id)
     player.waveformAction(second,seconds:8,duration:12,play:false)
@@ -69,5 +76,21 @@ import AVFoundation
     player.pause()
     player.waveformAction(first,seconds:.nan,duration:12,play:true)
     precondition(!player.isLoading)
-    print("PASS: waveform time mapping, seek, non-interrupting NEXT cue, automatic cue consumption, explicit play, protection and embedded playlist sizing")
+    player.play(third);try await waitLoaded();player.pause()
+    precondition(!player.activeDeckRight && player.deckTrack(right:false)?.id == third.id && player.deckTrack(right:true)==nil)
+    player.load(third,autoplay:false);try await waitLoaded();precondition(!player.activeDeckRight)
+    player.repeatAll=true;player.next(automatic:true);try await waitLoaded();player.pause()
+    precondition(player.activeDeckRight && player.deckTrack(right:true)?.id == first.id && player.deckTrack(right:false)?.id == second.id)
+    let restoredRight=Player(defaults:defaults,remoteCommands:false,setupLock:protection)
+    precondition(restoredRight.activeDeckRight && restoredRight.currentID == first.id)
+    // Reverse-direction crossfade: the next incoming track must occupy the left deck.
+    player.setFadeMode(.short,after:first);player.toggle();player.play(second)
+    for _ in 0..<200 {if player.isCrossfading {break};try await Task.sleep(nanoseconds:20_000_000)}
+    precondition(player.isCrossfading && !player.activeDeckRight && player.deckTrack(right:false)?.id == second.id && player.deckTrack(right:true)?.id == first.id)
+    precondition(player.deckLabel(right:false)=="INCOMING" && player.deckLabel(right:true)=="OUTGOING")
+    player.waveformAction(second,seconds:8,duration:12,play:false);player.pause()
+    precondition(!player.isCrossfading && !player.activeDeckRight && player.deckTrack(right:true)?.id == third.id)
+    let restored=Player(defaults:defaults,remoteCommands:false,setupLock:protection)
+    precondition(!restored.activeDeckRight && restored.currentID == second.id)
+    print("PASS: alternating physical decks, stable restart/selection, both crossfade directions, next cues, persistence, waveform time mapping, seek, non-interrupting NEXT cue, automatic cue consumption, explicit play, protection and embedded playlist sizing")
 }
