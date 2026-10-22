@@ -401,9 +401,11 @@ struct PlayerView: View {
                         Spacer(minLength:0)
                     }
                     if playlistWindow.detached {
-                        Button { AppDelegate.shared.showPlaylistWindow() } label: {
-                            MarkerLabel("Open Playlist Window",systemImage:"rectangle.on.rectangle").font(.stage(size:12)).frame(maxWidth:.infinity).padding(.vertical,16)
-                        }.buttonStyle(PlayerControlStyle()).frame(maxHeight:windows.autoFit ? nil:.infinity,alignment:.top)
+                        HStack(spacing:12) {
+                            Text("Playlist is in a separate window").font(.stage(size:11)).foregroundStyle(.secondary)
+                            Spacer(minLength:0)
+                            Button {AppDelegate.shared.showPlaylistWindow()} label:{MarkerLabel("Show",systemImage:"rectangle.on.rectangle").font(.stage(size:11)).padding(8)}.buttonStyle(PlayerControlStyle()).accessibilityLabel("Open Playlist Window")
+                        }.padding(10).background(.white.opacity(0.025),in:RoundedRectangle(cornerRadius:8))
                     } else { queue }
                 }
         }
@@ -588,10 +590,10 @@ struct PlayerView: View {
                     .buttonStyle(PlayerControlStyle(active:setup.settingsBlocked)).accessibilityLabel(setup.settingsBlocked ? "Unlock Settings":"Lock Settings").stageHint(setup.settingsBlocked ? "Unlock settings":"Protect settings")
             }
             Group {
-            Button { AppDelegate.shared.showThemesWindow() } label: { MarkerLabel("Themes & Appearance…",systemImage:"paintpalette").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.themes)
-            Button { AppDelegate.shared.showMappings() } label: { MarkerLabel("Keyboard / MIDI…",systemImage:"pianokeys").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.mappings)
-            Button { AppDelegate.shared.showBackupWindow() } label: { MarkerLabel("Timecode & Backup…",systemImage:"network").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.backup)
-            Button {AppDelegate.shared.showWebViewer()} label: {MarkerLabel("Web Viewer…",systemImage:"iphone").font(.stage(size:12)).padding(8)}.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.viewer)
+            Button { AppDelegate.shared.showThemesWindow() } label: { MarkerLabel("Themes & Appearance",systemImage:"paintpalette").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.themes)
+            Button { AppDelegate.shared.showMappings() } label: { MarkerLabel("Keyboard / MIDI",systemImage:"pianokeys").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.mappings)
+            Button { AppDelegate.shared.showBackupWindow() } label: { MarkerLabel("Timecode & Backup",systemImage:"network").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.backup)
+            Button {AppDelegate.shared.showWebViewer()} label: {MarkerLabel("Web Viewer",systemImage:"iphone").font(.stage(size:12)).padding(8)}.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.viewer)
             Button {workspace.toggle()} label:{MarkerLabel("Workspace: "+workspace.title,systemImage:workspace.mode == .single ? "workspace.single":"workspace.nearby").padding(7)}.buttonStyle(PlayerControlStyle())
             WindowDestinationSettings()
             QuickActionSettings()

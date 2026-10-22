@@ -25,17 +25,16 @@ struct HardPlayTransport: View {
             .font(.stage(size:size * 0.4,weight:.bold)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text))
             .offset(x:playing ? 0:1)
             .frame(width:size,height:size)
-            .background(LinearGradient(colors:[Color(stageHex:"657586"),Color(stageHex:"2C3540")],startPoint:.topLeading,endPoint:.bottomTrailing),in:Circle())
-            .overlay(Circle().stroke(LinearGradient(colors:[accent.opacity(0.95),.black.opacity(0.8)],startPoint:.top,endPoint:.bottom),lineWidth:1.6))
-            .overlay(Circle().stroke(.white.opacity(0.1),lineWidth:0.8).padding(3))
-            .shadow(color:.black.opacity(0.5),radius:2,y:3)
+            .background(accent.opacity(playing ? 0.14:0.075),in:Circle())
+            .overlay(Circle().stroke(accent.opacity(0.42),lineWidth:1))
+            .shadow(color:.black.opacity(0.10),radius:1,y:0.5)
             .accessibilityHidden(true)
     }
 }
 struct HardPlayPressStyle: ButtonStyle {
     func makeBody(configuration:Configuration) -> some View {
         configuration.label.contentShape(RoundedRectangle(cornerRadius:16))
-            .scaleEffect(configuration.isPressed ? 0.95:1)
+            .scaleEffect(configuration.isPressed ? 0.98:1)
             .brightness(configuration.isPressed ? -0.08:0)
             .animation(.easeOut(duration:0.1),value:configuration.isPressed)
     }

@@ -145,24 +145,24 @@ final class Player: ObservableObject {
         }
     }
     private struct QueueEdit {
-        var tracks:[Track];var modes:[String:FadeMode];var positions:[String:Double];var bookmarks:[String:Data];var selected:String?;var name:String;var url:URL?;var deckRight:Bool
+        var tracks:[Track];var modes:[String:FadeMode];var positions:[String:Double];var bookmarks:[String:Data];var selected:String?;var name:String;var url:URL?;var deckRight:Bool;var orderOnly:Bool
     }
     private var pastEdits:[QueueEdit] = []
     private var futureEdits:[QueueEdit] = []
     var canUndoEdit:Bool { !pastEdits.isEmpty }
     var canRedoEdit:Bool { !futureEdits.isEmpty }
-    private func editSnapshot()->QueueEdit { QueueEdit(tracks:tracks,modes:transitionModes,positions:positions,bookmarks:bookmarks,selected:selectedID,name:playlistName,url:playlistURL,deckRight:activeDeckRight) }
-    private func recordEdit() { pastEdits.append(editSnapshot());if pastEdits.count>30 { pastEdits.removeFirst() };futureEdits=[];objectWillChange.send() }
+    private func editSnapshot(orderOnly:Bool=false)->QueueEdit { QueueEdit(tracks:tracks,modes:transitionModes,positions:positions,bookmarks:bookmarks,selected:selectedID,name:playlistName,url:playlistURL,deckRight:activeDeckRight,orderOnly:orderOnly) }
+    private func recordEdit(orderOnly:Bool=false) { pastEdits.append(editSnapshot(orderOnly:orderOnly));if pastEdits.count>30 { pastEdits.removeFirst() };futureEdits=[];objectWillChange.send() }
     func undoEdit() {
         guard !setupLock.editsBlocked,!ControlLock.shared.isLocked,let edit=pastEdits.popLast() else { return }
-        futureEdits.append(editSnapshot());restoreEdit(edit)
+        futureEdits.append(editSnapshot(orderOnly:edit.orderOnly));restoreEdit(edit)
     }
     func redoEdit() {
         guard !setupLock.editsBlocked,!ControlLock.shared.isLocked,let edit=futureEdits.popLast() else { return }
-        pastEdits.append(editSnapshot());restoreEdit(edit)
+        pastEdits.append(editSnapshot(orderOnly:edit.orderOnly));restoreEdit(edit)
     }
     private func restoreEdit(_ edit:QueueEdit) {
-        cancelCrossfade()
+        if edit.orderOnly {invalidateQueuePreparation()}else {cancelCrossfade()}
         if !edit.tracks.contains(where:{$0.id == currentID}) || edit.tracks.first(where:{$0.id == currentID})?.url != current?.url { pause();loadingTask?.cancel();engine.replaceCurrentItem(with:nil);currentID=nil;elapsed=0;duration=0 }
         playlistURL=edit.url.flatMap {FileManager.default.fileExists(atPath:$0.path) ? $0:nil};playlistName=edit.name;tracks=edit.tracks;transitionModes=edit.modes;positions.merge(edit.positions) { current,_ in current };bookmarks=edit.bookmarks;selectedID=edit.selected
         if current == nil {activeDeckRight=edit.deckRight;deckTrackID=nil}
@@ -698,6 +698,27 @@ final class Player: ObservableObject {
         let index = tracks.firstIndex { $0.id == currentID } ?? 0
         play(tracks[max(0, index - 1)])
     }
+    private func invalidateQueuePreparation() {
+        nextChoice=nil
+        // Reordering and its Undo must not interrupt either engine during a live fade.
+        if !isCrossfading {
+            preparationTask?.cancel();preparationTask=nil;preparationID=nil;prepared?.player.pause();prepared=nil;manualPreparation=false;failedPreparationSource=nil
+        }
+    }
+    @discardableResult func moveTrack(_ id:String,to index:Int)->Bool {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked,tracks.indices.contains(index),let source=tracks.firstIndex(where:{$0.id==id}),source != index else {return false}
+        recordEdit(orderOnly:true);var reordered=tracks;let track=reordered.remove(at:source);reordered.insert(track,at:index);tracks=reordered
+        invalidateQueuePreparation();persist();return true
+    }
+    @discardableResult func moveTrack(_ id:String,relativeTo target:String,after:Bool)->Bool {
+        guard id != target,tracks.contains(where:{$0.id==id}) else {return false}
+        let others=tracks.filter {$0.id != id}
+        guard let index=others.firstIndex(where:{$0.id==target}) else {return false}
+        return moveTrack(id,to:index+(after ? 1:0))
+    }
+    func moveTrack(_ id:String,by offset:Int) {
+        guard let index=tracks.firstIndex(where:{$0.id==id}) else {return};moveTrack(id,to:index+offset)
+    }
     func remove(_ track: Track) {
         guard !setupLock.editsBlocked,tracks.contains(where:{$0.id == track.id}) else { return }
         recordEdit()
@@ -759,9 +780,9 @@ enum ControlOutline: Shape {
     func path(in rect: CGRect) -> Path {
         switch self {
         case .circle: return Circle().path(in: rect)
-        case .rounded: return RoundedRectangle(cornerRadius:6).path(in:rect)
+        case .rounded: return RoundedRectangle(cornerRadius:8).path(in:rect)
         case .capsule: return Capsule().path(in: rect)
-        case .hardware:return RoundedRectangle(cornerRadius:4).path(in:rect)
+        case .hardware:return RoundedRectangle(cornerRadius:6).path(in:rect)
         }
     }
 }
@@ -777,19 +798,18 @@ struct PlayerControlStyle: ButtonStyle {
         return outline
     }
     func makeBody(configuration: Configuration) -> some View {
-        let pressed=configuration.isPressed
-        let lit=active || primary
-        let top=lit ? tapeB:Color(stageHex:"454F5B")
-        let bottom=lit ? tapeB.opacity(0.76):Color(stageHex:"20262E")
+        let pressed=configuration.isPressed,lit=active || primary
         return configuration.label
-            .foregroundStyle(lit ? tapeInk:Color(stageHex:appearance.theme.text))
-            .background(LinearGradient(colors:pressed ? [bottom,top]:[top,bottom],startPoint:.top,endPoint:.bottom),in:surface)
-            .overlay(surface.stroke(LinearGradient(colors:[.white.opacity(pressed ? 0.12:0.4),.black.opacity(0.7)],startPoint:.top,endPoint:.bottom),lineWidth:1))
-            .overlay(surface.stroke(.white.opacity(lit ? 0.2:0.07),lineWidth:0.7).padding(2))
-            .shadow(color:.black.opacity(0.5),radius:pressed ? 0:1.5,x:0,y:pressed ? 0:2.5)
-            .contentShape(surface).opacity(enabled ? 1:0.35)
-            .offset(y:pressed ? 1.5:0).scaleEffect(pressed ? 0.98:1)
-            .animation(.easeOut(duration:0.08),value:pressed)
+            .foregroundStyle(Color(stageHex:appearance.theme.text).opacity(enabled ? 0.94:0.52))
+            .background {
+                surface.fill(Color(stageHex:appearance.theme.background))
+                    .overlay(surface.fill(lit ? accent.opacity(pressed ? 0.20:0.13):.white.opacity(pressed ? 0.075:0.035)))
+            }
+            .overlay(surface.stroke(lit ? accent.opacity(0.38):.white.opacity(0.11),lineWidth:0.8))
+            .shadow(color:.black.opacity(0.10),radius:1,y:0.5)
+            .contentShape(surface).opacity(enabled ? 1:0.55)
+            .scaleEffect(pressed ? 0.99:1)
+            .animation(.easeOut(duration:0.12),value:pressed)
     }
 }
 
@@ -1414,6 +1434,26 @@ if CommandLine.arguments.contains("--style-check") {
     controls.mapping = false; ControlLock.shared.lock(); controls.trigger(play); precondition(fired.count == 7); _ = ControlLock.shared.unlock(heldFor:3)
     isolated.removePersistentDomain(forName:suite)
     print("PASS: MIDI learn, note/CC edges, running status, source isolation, shortcut conflict replacement, persistence, set validation and lock/map suppression")
+} else if CommandLine.arguments.contains("--reorder-test") {
+    let suite="local.hardplay.reorder.\(UUID().uuidString)"
+    let isolated=UserDefaults(suiteName:suite)!,directory=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
+    defer {isolated.removePersistentDomain(forName:suite);try? FileManager.default.removeItem(at:directory)}
+    let protection=SetupLock(defaults:isolated),p=Player(defaults:isolated,remoteCommands:false,setupLock:protection)
+    let a=Track(url:directory.appendingPathComponent("a.wav")),b=Track(url:directory.appendingPathComponent("b.wav")),c=Track(url:directory.appendingPathComponent("c.wav"))
+    p.tracks=[a,b,c];p.currentID=b.id;p.selectedID=c.id;p.elapsed=17;p.volume=0.35
+    precondition(!p.moveTrack(a.id,to:0) && !p.canUndoEdit)
+    precondition(!p.moveTrack("missing",to:1) && !p.moveTrack(a.id,to:99) && !p.canUndoEdit)
+    precondition(p.moveTrack(a.id,relativeTo:c.id,after:true) && p.tracks.map(\.id)==[b.id,c.id,a.id])
+    precondition(p.currentID==b.id && p.selectedID==c.id && p.elapsed==17 && p.volume==0.35)
+    p.undoEdit();precondition(p.tracks.map(\.id)==[a.id,b.id,c.id] && p.currentID==b.id)
+    p.redoEdit();precondition(p.tracks.map(\.id)==[b.id,c.id,a.id])
+    p.moveTrack(a.id,by:-1);precondition(p.tracks.map(\.id)==[b.id,a.id,c.id])
+    protection.lock();precondition(!p.moveTrack(a.id,to:0));protection.unlock()
+    ControlLock.shared.lock();precondition(!p.moveTrack(a.id,to:0));_ = ControlLock.shared.unlock(heldFor:3)
+    let saved=directory.appendingPathComponent("order.hardplay");try p.writePlaylist(to:saved)
+    let read=try SavedPlaylist.read(from:saved);precondition(read.tracks.map(\.path)==["b.wav","a.wav","c.wav"])
+    print("PASS: before/after drag positions, move steps, no-op/invalid rejection, current/selection/position/volume preservation, Undo/Redo, locks and saved order")
 } else if CommandLine.arguments.contains("--playlist-lifecycle-test") {
     let suite="local.hardplay.lifecycle.\(UUID().uuidString)"
     let isolated=UserDefaults(suiteName:suite)!,directory=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -69,7 +69,7 @@ struct ThemedBackdrop: View {
             .overlay {
                 if t.texture {
                     Canvas { ctx,size in
-                        let color = Color(stageHex:t.accent).opacity(0.055)
+                        let color = Color(stageHex:t.accent).opacity(0.025)
                         switch t.preset {
                         case "FOH", "Stage Crew", "Stagehand":
                             // Sparse tolex lines and case hardware; static paths, no texture images.
@@ -134,7 +134,6 @@ struct ThemeEditorView: View {
             VStack(alignment:.leading,spacing:16) {
                 Text("Themes & Appearance").font(.stage(.title2).bold())
                 Text("Touring cases · FOH markings · crew tape · clear marker lettering. Live preview stays in the player.").font(.stage(.callout)).foregroundStyle(.secondary)
-                HStack {HardPlayShieldWordmark();Spacer();HardPlayWordmark(layout:.stacked)}
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:8) {
                     ForEach(StageTheme.names,id:\.self) { name in
                         Button { appearance.theme = .named(name) } label: {

@@ -23,7 +23,7 @@ struct SetNameTape:View {
             if edit.editing {
                 TextField("Set name",text:$edit.draft).textFieldStyle(.plain).focused($focused).onSubmit {finish(true)}.onExitCommand {finish(false)}.accessibilityLabel("Set Name")
             } else {
-                HStack(spacing:5) {Text(player.playlistName).lineLimit(1);if onOpen != nil {MarkerIcon(systemName:"chevron.down").font(.stage(size:9,weight:.bold))}}
+                HStack(alignment:.center,spacing:8) {Text(player.playlistName).fixedSize(horizontal:false,vertical:true).multilineTextAlignment(.leading);if onOpen != nil {MarkerIcon(systemName:"chevron.down").font(.stage(size:9,weight:.bold))}}
                     .frame(maxWidth:.infinity,alignment:.leading)
                     .gesture(TapGesture(count:2).onEnded {begin()}.exclusively(before:TapGesture().onEnded {onOpen?()}))
                     .contextMenu {
@@ -35,7 +35,7 @@ struct SetNameTape:View {
                     .accessibilityAction {onOpen?()}.accessibilityAction(named:Text("Rename Set")){begin()}
             }
         }.font(.custom(StageTypography.name,size:14)).foregroundStyle(tapeInk)
-            .padding(.horizontal,12).padding(.vertical,7).frame(width:width).background(TapeSurface())
+            .padding(.horizontal,12).padding(.vertical,7).frame(width:width,alignment:.leading).background(TapeSurface())
             .onChange(of:focused) {_,value in if !value {finish(true)}}
             .onChange(of:setup.editsBlocked) {_,value in if value {finish(false)}}
             .onChange(of:lock.isLocked) {_,value in if value {finish(false)}}

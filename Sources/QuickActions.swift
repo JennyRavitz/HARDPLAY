@@ -61,7 +61,7 @@ struct QuickActionSettings:View {
             VStack(alignment:.leading,spacing:12) {
                 Text("Up to four buttons below the player toolbar. Right-click to reassign. Trigger runs once; Toggle switches on and off.").font(.stage(size:11)).foregroundStyle(.secondary)
                 ForEach(actions.buttons) {button in
-                    HStack {Text(button.action.title).lineLimit(1);Spacer();Menu {QuickActionMenu(button:button)} label:{Text(button.behavior.rawValue+" · Edit")}}
+                    HStack {Text(button.action.title).lineLimit(2).fixedSize(horizontal:false,vertical:true);Spacer();Menu {QuickActionMenu(button:button)} label:{Text(button.behavior.rawValue+" · Edit")}}
                 }
                 Menu {ActionChoices {actions.add($0)}} label:{MarkerLabel("Add Button",systemImage:"plus")}.disabled(actions.buttons.count>=4)
             }.padding(.top,10)
