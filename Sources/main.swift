@@ -31,7 +31,9 @@ final class Player: ObservableObject {
     @Published private(set) var playlistURL: URL?
     @Published private(set) var playlistName = "My Set"
     @Published private(set) var recentPlaylists: [URL] = []
-    @Published var selectedID: String?
+    private var queueSelectionCursor:String?
+    @Published var queueSelection:Set<String>=[]
+    @Published var selectedID: String? {didSet {queueSelection=[];queueSelectionCursor=selectedID}}
     @Published private(set) var activeDeckRight=false
     private var deckTrackID:String?
     @Published var currentID: String?
@@ -145,13 +147,13 @@ final class Player: ObservableObject {
         }
     }
     private struct QueueEdit {
-        var tracks:[Track];var modes:[String:FadeMode];var positions:[String:Double];var bookmarks:[String:Data];var selected:String?;var name:String;var url:URL?;var deckRight:Bool;var orderOnly:Bool
+        var tracks:[Track];var modes:[String:FadeMode];var positions:[String:Double];var bookmarks:[String:Data];var selected:String?;var name:String;var url:URL?;var deckRight:Bool;var orderOnly:Bool;var selection:Set<String>
     }
     private var pastEdits:[QueueEdit] = []
     private var futureEdits:[QueueEdit] = []
     var canUndoEdit:Bool { !pastEdits.isEmpty }
     var canRedoEdit:Bool { !futureEdits.isEmpty }
-    private func editSnapshot(orderOnly:Bool=false)->QueueEdit { QueueEdit(tracks:tracks,modes:transitionModes,positions:positions,bookmarks:bookmarks,selected:selectedID,name:playlistName,url:playlistURL,deckRight:activeDeckRight,orderOnly:orderOnly) }
+    private func editSnapshot(orderOnly:Bool=false)->QueueEdit { QueueEdit(tracks:tracks,modes:transitionModes,positions:positions,bookmarks:bookmarks,selected:selectedID,name:playlistName,url:playlistURL,deckRight:activeDeckRight,orderOnly:orderOnly,selection:queueSelection) }
     private func recordEdit(orderOnly:Bool=false) { pastEdits.append(editSnapshot(orderOnly:orderOnly));if pastEdits.count>30 { pastEdits.removeFirst() };futureEdits=[];objectWillChange.send() }
     func undoEdit() {
         guard !setupLock.editsBlocked,!ControlLock.shared.isLocked,let edit=pastEdits.popLast() else { return }
@@ -164,7 +166,7 @@ final class Player: ObservableObject {
     private func restoreEdit(_ edit:QueueEdit) {
         if edit.orderOnly {invalidateQueuePreparation()}else {cancelCrossfade()}
         if !edit.tracks.contains(where:{$0.id == currentID}) || edit.tracks.first(where:{$0.id == currentID})?.url != current?.url { pause();loadingTask?.cancel();engine.replaceCurrentItem(with:nil);currentID=nil;elapsed=0;duration=0 }
-        playlistURL=edit.url.flatMap {FileManager.default.fileExists(atPath:$0.path) ? $0:nil};playlistName=edit.name;tracks=edit.tracks;transitionModes=edit.modes;positions.merge(edit.positions) { current,_ in current };bookmarks=edit.bookmarks;selectedID=edit.selected
+        playlistURL=edit.url.flatMap {FileManager.default.fileExists(atPath:$0.path) ? $0:nil};playlistName=edit.name;tracks=edit.tracks;transitionModes=edit.modes;positions.merge(edit.positions) { current,_ in current };bookmarks=edit.bookmarks;selectedID=edit.selected;queueSelection=edit.selection
         if current == nil {activeDeckRight=edit.deckRight;deckTrackID=nil}
         if current == nil,let first=selectedTrack ?? tracks.first { load(first,autoplay:false,position:positions[first.id] ?? 0) }
         persist();nowPlaying();objectWillChange.send()
@@ -248,9 +250,58 @@ final class Player: ObservableObject {
         return nextChoice
     }
     var selectedTrack: Track? { tracks.first { $0.id == selectedID } }
-    func selectInQueue(_ track:Track) {
-        guard !setupLock.selectionBlocked,!ControlLock.shared.isLocked,tracks.contains(where:{$0.id == track.id}) else { return }
-        selectedID=track.id; persist()
+    var selectedQueueTracks:[Track] {tracks.filter {queueSelection.isEmpty ? $0.id==selectedID:queueSelection.contains($0.id)}}
+    func clearQueueSelection() {guard !setupLock.selectionBlocked,!ControlLock.shared.isLocked else{return};selectedID=nil;queueSelection=[];persist()}
+    func selectAllQueue() {guard !setupLock.selectionBlocked,!ControlLock.shared.isLocked else{return};selectedID=selectedID ?? tracks.first?.id;queueSelection=Set(tracks.map(\.id));persist()}
+    func selectInQueue(_ track:Track,additive:Bool=false,range:Bool=false) {
+        guard !setupLock.selectionBlocked,!ControlLock.shared.isLocked,let index=tracks.firstIndex(where:{$0.id == track.id}) else { return }
+        let previous=Set(selectedQueueTracks.map(\.id))
+        if range,let anchor=tracks.firstIndex(where:{$0.id==selectedID}) {queueSelection=Set(tracks[min(anchor,index)...max(anchor,index)].map(\.id))}
+        else if additive {
+            var selection=previous
+            if selection.contains(track.id) {selection.remove(track.id)}else{selection.insert(track.id)}
+            selectedID=selection.contains(track.id) ? track.id:tracks.first(where:{selection.contains($0.id)})?.id
+            queueSelection=selection
+        }else{selectedID=track.id}
+        queueSelectionCursor=track.id;persist()
+    }
+    func navigateQueue(by offset:Int,extend:Bool) {
+        guard !tracks.isEmpty else{return}
+        let index=tracks.firstIndex(where:{$0.id==(extend ? queueSelectionCursor:selectedID)}) ?? (offset>0 ? -1:tracks.count)
+        selectInQueue(tracks[min(tracks.count-1,max(0,index+offset))],range:extend)
+    }
+    @discardableResult func copyQueue(to board:NSPasteboard)->Bool {
+        guard !ControlLock.shared.isLocked,!selectedQueueTracks.isEmpty else{return false}
+        let entries=selectedQueueTracks.map {QueueClipboard.Entry(track:$0,fade:fadeMode(after:$0),bookmark:bookmarks[$0.id])}
+        guard let data=try? JSONEncoder().encode(QueueClipboard(entries:entries)),data.count<=32_000_000 else{return false}
+        board.clearContents();return board.setData(data,forType:QueueClipboard.type)
+    }
+    func cutQueue(to board:NSPasteboard) {guard !setupLock.editsBlocked,!ControlLock.shared.isLocked else{return};if copyQueue(to:board) {removeSelectedQueue()}}
+    func pasteQueue(from board:NSPasteboard) {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked else{return}
+        if let value=QueueClipboard.read(board) {insertQueueCopies(value.entries)}
+        else if let urls=board.readObjects(forClasses:[NSURL.self],options:[.urlReadingFileURLsOnly:true]) as? [URL] {add(urls)}
+    }
+    func duplicateSelectedQueue() {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked else{return}
+        insertQueueCopies(selectedQueueTracks.map {QueueClipboard.Entry(track:$0,fade:fadeMode(after:$0),bookmark:bookmarks[$0.id])})
+    }
+    private func insertQueueCopies(_ entries:[QueueClipboard.Entry]) {
+        guard !entries.isEmpty else{return};recordEdit()
+        let selected=Set(selectedQueueTracks.map(\.id)),index=tracks.lastIndex(where:{selected.contains($0.id)}).map {$0+1} ?? tracks.count
+        let copies=entries.map {entry -> Track in
+            let copy=Track(url:entry.track.url,customTitle:entry.track.customTitle,occurrenceID:UUID().uuidString)
+            transitionModes[copy.id]=entry.fade;bookmarks[copy.id]=entry.bookmark;positions[copy.id]=0;return copy
+        }
+        tracks.insert(contentsOf:copies,at:index);selectedID=copies.first?.id;queueSelection=Set(copies.map(\.id));invalidateQueuePreparation();persist()
+    }
+    func removeSelectedQueue() {removeTracks(Set(selectedQueueTracks.map(\.id)))}
+    func moveSelectedQueue(by offset:Int) {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked,abs(offset)==1 else{return}
+        let selected=Set(selectedQueueTracks.map(\.id));var reordered=tracks
+        if offset<0 {for i in reordered.indices.dropFirst() where selected.contains(reordered[i].id) && !selected.contains(reordered[i-1].id) {reordered.swapAt(i,i-1)}}
+        else if reordered.count>1 {for i in stride(from:reordered.count-2,through:0,by:-1) where selected.contains(reordered[i].id) && !selected.contains(reordered[i+1].id) {reordered.swapAt(i,i+1)}}
+        guard reordered != tracks else{return};recordEdit(orderOnly:true);tracks=reordered;invalidateQueuePreparation();persist()
     }
     func playFromQueue(_ track:Track) {
         guard !setupLock.selectionBlocked,!setupLock.playbackBlocked,!ControlLock.shared.isLocked else { return }
@@ -719,14 +770,19 @@ final class Player: ObservableObject {
     func moveTrack(_ id:String,by offset:Int) {
         guard let index=tracks.firstIndex(where:{$0.id==id}) else {return};moveTrack(id,to:index+offset)
     }
-    func remove(_ track: Track) {
-        guard !setupLock.editsBlocked,tracks.contains(where:{$0.id == track.id}) else { return }
+    func remove(_ track:Track) {removeTracks([track.id])}
+    private func removeTracks(_ requested:Set<String>) {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked else{return}
+        let ids=requested.intersection(Set(tracks.map(\.id)));guard !ids.isEmpty else{return}
         recordEdit()
-        if track.id == currentID {
-            cancelCrossfade(); clearEndBoundary(); isLoading = false
-            loadingTask?.cancel(); engine.pause(); engine.replaceCurrentItem(with: nil); playing = false; currentID = nil; elapsed = 0; duration = 0
+        if let currentID,ids.contains(currentID) {
+            cancelCrossfade();clearEndBoundary();isLoading=false;loadingTask?.cancel();engine.pause();engine.replaceCurrentItem(with:nil);playing=false;self.currentID=nil;elapsed=0;duration=0
         }
-        waveformCues.removeValue(forKey:track.id); tracks.removeAll { $0.id == track.id }; if selectedID == track.id { selectedID=currentID ?? tracks.first?.id }; bookmarks.removeValue(forKey: track.id); positions.removeValue(forKey: track.id); transitionModes.removeValue(forKey: track.id); cancelCrossfade(); persist(); nowPlaying()
+        let selection=Set(selectedQueueTracks.map(\.id)).subtracting(ids)
+        for id in ids {waveformCues.removeValue(forKey:id);bookmarks.removeValue(forKey:id);positions.removeValue(forKey:id);transitionModes.removeValue(forKey:id)}
+        tracks.removeAll {ids.contains($0.id)}
+        if let selectedID,ids.contains(selectedID) {self.selectedID=tracks.first(where:{selection.contains($0.id)})?.id}
+        queueSelection=selection;cancelCrossfade();persist();nowPlaying()
     }
     func nowPlaying() {
         guard publishNowPlaying else { return }
@@ -897,8 +953,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(withTitle: "Save Playlist",action:#selector(savePlaylist),keyEquivalent:"s")
         let saveAs = appMenu.addItem(withTitle:"Save Playlist As…",action:#selector(savePlaylistAs),keyEquivalent:"s"); saveAs.keyEquivalentModifierMask = [.command,.shift]
         let open = appMenu.addItem(withTitle:"Open Playlist…",action:#selector(openPlaylist),keyEquivalent:"o"); open.keyEquivalentModifierMask = [.command,.shift]
-        appMenu.addItem(withTitle:"Undo Playlist Edit",action:#selector(undoQueueEdit),keyEquivalent:"z")
-        let redo=appMenu.addItem(withTitle:"Redo Playlist Edit",action:#selector(redoQueueEdit),keyEquivalent:"z");redo.keyEquivalentModifierMask=[.command,.shift]
         appMenu.addItem(withTitle:"PATCH…",action:#selector(showSettingsWindow),keyEquivalent:",")
         appMenu.addItem(withTitle:"Timecode & Backup…",action:#selector(showBackupWindow),keyEquivalent:"")
         appMenu.addItem(withTitle:"Web Viewer…",action:#selector(showWebViewer),keyEquivalent:"")
@@ -909,6 +963,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(withTitle: "Lock Controls", action: #selector(lockControls), keyEquivalent: "l")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit Hard Play", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        addQueueEditMenu(to:menu)
         NSApp.mainMenu = menu
     }
     func makeWindows() {
@@ -1434,6 +1489,32 @@ if CommandLine.arguments.contains("--style-check") {
     controls.mapping = false; ControlLock.shared.lock(); controls.trigger(play); precondition(fired.count == 7); _ = ControlLock.shared.unlock(heldFor:3)
     isolated.removePersistentDomain(forName:suite)
     print("PASS: MIDI learn, note/CC edges, running status, source isolation, shortcut conflict replacement, persistence, set validation and lock/map suppression")
+} else if CommandLine.arguments.contains("--playlist-edit-test") {
+    let suite="local.hardplay.edit.\(UUID().uuidString)",isolated=UserDefaults(suiteName:suite)!
+    let protection=SetupLock(defaults:isolated),p=Player(defaults:isolated,remoteCommands:false,setupLock:protection)
+    let board=NSPasteboard(name:NSPasteboard.Name(suite))
+    defer {board.releaseGlobally();isolated.removePersistentDomain(forName:suite)}
+    let a=Track(url:URL(fileURLWithPath:"/tmp/edit-a.wav"),customTitle:"Custom A"),b=Track(url:URL(fileURLWithPath:"/tmp/edit-b.wav")),c=Track(url:URL(fileURLWithPath:"/tmp/edit-c.wav"))
+    p.tracks=[a,b,c];p.currentID=b.id;p.elapsed=12;p.volume=0.4;p.setFadeMode(.long,after:a)
+    p.selectInQueue(a);p.selectInQueue(c,additive:true);precondition(p.selectedQueueTracks.map(\.id)==[a.id,c.id])
+    precondition(p.copyQueue(to:board));p.pasteQueue(from:board)
+    precondition(p.tracks.count==5 && Set(p.tracks.map(\.id)).count==5)
+    let copies=p.selectedQueueTracks;precondition(copies.count==2 && copies[0].title=="Custom A" && p.fadeMode(after:copies[0]) == .long && copies[0].id != a.id)
+    precondition(p.currentID==b.id && p.elapsed==12 && p.volume==0.4 && !p.playing)
+    p.removeSelectedQueue();precondition(p.tracks.map(\.id)==[a.id,b.id,c.id])
+    p.undoEdit();precondition(p.tracks.count==5 && p.selectedQueueTracks.count==2);p.redoEdit();precondition(p.tracks.count==3)
+    p.selectInQueue(a);p.selectInQueue(c,range:true);precondition(p.selectedQueueTracks.count==3)
+    p.navigateQueue(by:-1,extend:true);precondition(p.selectedQueueTracks.map(\.id)==[a.id,b.id])
+    p.clearQueueSelection();precondition(p.selectedQueueTracks.isEmpty)
+    p.selectInQueue(a);p.selectInQueue(c,additive:true);p.cutQueue(to:board);precondition(p.tracks.map(\.id)==[b.id])
+    p.undoEdit();precondition(p.tracks.map(\.id)==[a.id,b.id,c.id] && p.selectedQueueTracks.count==2)
+    p.moveSelectedQueue(by:1);precondition(p.tracks.map(\.id)==[b.id,a.id,c.id]);p.undoEdit()
+    p.duplicateSelectedQueue();precondition(p.tracks.count==5 && p.selectedQueueTracks.count==2);p.undoEdit()
+    p.selectAllQueue();precondition(p.selectedQueueTracks.count==3)
+    protection.lock();p.removeSelectedQueue();p.pasteQueue(from:board);p.cutQueue(to:board);precondition(p.tracks.count==3);protection.unlock()
+    ControlLock.shared.lock();precondition(!p.copyQueue(to:board));p.removeSelectedQueue();precondition(p.tracks.count==3);_ = ControlLock.shared.unlock(heldFor:3)
+    board.clearContents();board.setData(Data("bad".utf8),forType:QueueClipboard.type);p.pasteQueue(from:board);precondition(p.tracks.count==3)
+    print("PASS: additive/range/arrow selection, clipboard independent copies with names/fades, atomic cut/delete/duplicate, Undo/Redo, group movement, locks, invalid payload and stable transport")
 } else if CommandLine.arguments.contains("--reorder-test") {
     let suite="local.hardplay.reorder.\(UUID().uuidString)"
     let isolated=UserDefaults(suiteName:suite)!,directory=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

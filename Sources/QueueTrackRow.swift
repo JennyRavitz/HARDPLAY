@@ -50,7 +50,7 @@ struct QueueTrackRow:View {
                     .onSubmit {finishRename(save:true)}.onExitCommand {finishRename(save:false)}.task {nameFocused=true}
                 Button {finishRename(save:true)} label:{MarkerIcon(systemName:"checkmark").frame(width:28,height:30)}.buttonStyle(PlayerControlStyle()).accessibilityLabel("Save Track Name")
             }else {
-                Button {player.selectInQueue(track)} label:{
+                Button {player.selectInQueue(track,additive:NSEvent.modifierFlags.contains(.command),range:NSEvent.modifierFlags.contains(.shift))} label:{
                     Text(track.title).font(.stage(size:14*appearance.theme.textScale)).lineLimit(2).multilineTextAlignment(.leading)
                         .frame(maxWidth:.infinity,minHeight:34,alignment:.leading).contentShape(Rectangle())
                 }.buttonStyle(.plain).disabled(setup.selectionBlocked).accessibilityLabel("Select Track: "+track.title).stageHint("Select without playing · "+track.title)
@@ -68,10 +68,11 @@ struct QueueTrackRow:View {
             }
         }.frame(minHeight:36).padding(.horizontal,10).padding(.vertical,8)
             .background(player.currentID==track.id ? accent.opacity(0.065):.white.opacity(row.hovering ? 0.035:0),in:RoundedRectangle(cornerRadius:8))
-            .overlay(RoundedRectangle(cornerRadius:8).stroke(player.selectedID==track.id ? accent.opacity(0.30):.clear,lineWidth:0.8))
+            .overlay(RoundedRectangle(cornerRadius:8).stroke(player.selectedQueueTracks.contains(where:{$0.id==track.id}) ? accent.opacity(0.30):.clear,lineWidth:0.8))
             .overlay(alignment:row.dropAfter ? .bottom:.top) {if row.targeted {Rectangle().fill(accent.opacity(0.8)).frame(height:2).allowsHitTesting(false)}}
             .background(GeometryReader {proxy in Color.clear.onAppear {row.height=proxy.size.height}.onChange(of:proxy.size.height) {_,height in if abs(row.height-height)>0.5 {row.height=height}}})
             .onDrop(of:[QueueDrag.type.identifier],delegate:QueueRowDrop(player:player,target:track.id,targeted:$row.targeted,after:$row.dropAfter,midpoint:row.height/2))
+            .onReceive(NotificationCenter.default.publisher(for:.queueRename)) {notice in if notice.object as? String == track.id {beginRename()}}
             .onHover {row.hovering=$0}
             .onChange(of:nameFocused) {_,focused in if !focused {finishRename(save:true)}}
             .onChange(of:setup.editsBlocked) {_,blocked in if blocked {finishRename(save:false);row.targeted=false}}

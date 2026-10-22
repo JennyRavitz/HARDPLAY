@@ -232,6 +232,7 @@ final class ControlMappings: ObservableObject {
     private func startKeyboard() {
         localMonitor = NSEvent.addLocalMonitorForEvents(matching:.keyDown) { [weak self] event in
             guard let self, !ControlLock.shared.isLocked else { return event }
+            if AppDelegate.shared?.queueKeyEvent(event) == true {return nil}
             let mods = Self.modifiers(event)
             if self.mapping {
                 if event.keyCode == 53 { self.selected = nil; self.message = "Selection cancelled"; return nil }

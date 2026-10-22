@@ -6,7 +6,7 @@ Hard Play is a stage audio player for macOS, with an installable offline web edi
 
 ## Download and install on Mac
 
-Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.26.0). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
+Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.27.0). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
 - **macOS 14 Sonoma or newer.** Packaged builds are for **Apple Silicon (arm64)**. Intel Macs can build the source locally; these packages are not universal binaries.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.
@@ -155,3 +155,22 @@ Button hints now appear in a reserved **HINT** area at the top of each player wi
 The blue three-beam icon, bundled marker lettering and hand-inked vector controls form the new identity. **Tape Blue / Tape White / Tape Black** presets provide live preview with automatic ink contrast. The primary wordmark reads **HARDPLAY**; the compact version stacks **HARD** over **PLAY**. Both are previewed in Themes, with six standalone SVG wordmarks under `assets/branding/wordmarks/`.
 
 The typeface is bundled for offline use and registered only inside the Mac process. Matching web-player sources and local Web Viewer styling are included. See [the identity guide](docs/MARKER-IDENTITY.ru.md).
+
+
+### Playlist editing shortcuts (Mac)
+
+Click a track title to select it without playback. Command-click toggles individual tracks; Shift-click selects a range. The **Edit** menu lists the shortcuts.
+
+| Action | Shortcut |
+| --- | --- |
+| Select all / deselect all | ⌘A / ⇧⌘A |
+| Copy / cut / paste tracks | ⌘C / ⌘X / ⌘V |
+| Duplicate selected tracks | ⌘D |
+| Remove from queue (audio files stay on disk) | Delete or ⌘Delete |
+| Undo / redo playlist edit | ⌘Z / ⇧⌘Z |
+| Rename one selected track inline | Return |
+| Select previous / next track | ↑ / ↓ |
+| Extend selection | ⇧↑ / ⇧↓ |
+| Move selected tracks | ⌥⌘↑ / ⌥⌘↓ |
+
+Control-A/C/X/V/D/Z are also accepted for playlist operations; Control-Shift-Z redoes. Inside a name field, standard Command shortcuts edit text. Paste creates independent queue occurrences after the last selected track (or at the end), preserving custom titles and fades without starting playback. Finder audio-file copies can also be pasted. A grouped edit takes one Undo step. Setup and control locks protect these operations; editing commands do not act on a playlist while a separate settings/editor panel or a modal sheet has focus.
