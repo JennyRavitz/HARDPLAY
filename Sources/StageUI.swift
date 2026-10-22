@@ -7,11 +7,11 @@ final class ControlLock: ObservableObject {
     @Published private(set) var isLocked = false
     func lock() { isLocked = true }
     @discardableResult func unlock(swipe: Double) -> Bool {
-        guard swipe >= 60 else { return false }
+        guard swipe >= 330 else { return false }
         isLocked = false; return true
     }
     @discardableResult func unlock(heldFor seconds: Double) -> Bool {
-        guard seconds >= 0.9 else { return false }
+        guard seconds >= 3 else { return false }
         isLocked = false; return true
     }
 }
@@ -162,76 +162,96 @@ struct StageDeck: View {
     }
 }
 
-/// Uses AppKit pointer tracking so window dragging and SwiftUI recognizers cannot steal the swipe.
-struct NativeUnlockControl: NSViewRepresentable {
-    final class UnlockView: NSView {
-        private var distance: CGFloat = 0
-        private var originY: CGFloat?
-        private var timer: Timer?
-        override var acceptsFirstResponder: Bool { true }
-        override var mouseDownCanMoveWindow: Bool { false }
+/// Accumulates continuous clockwise movement; straight drags and jumps never unlock.
+struct CircularUnlockProgress {
+    private(set) var degrees:Double=0
+    private var previous:Double?
+    mutating func begin(_ point:CGPoint,center:CGPoint) {
+        degrees=0;previous=angle(point,center:center)
+    }
+    private func angle(_ point:CGPoint,center:CGPoint)->Double? {
+        let dx=point.x-center.x,dy=point.y-center.y,r=hypot(dx,dy)
+        guard (36...84).contains(r) else {return nil}
+        return atan2(dy,dx)*180 / .pi
+    }
+    mutating func move(_ point:CGPoint,center:CGPoint)->Bool {
+        guard let next=angle(point,center:center),let prior=previous else {degrees=0;previous=nil;return false}
+        var delta=prior-next
+        if delta > 180 {delta-=360};if delta < -180 {delta+=360}
+        guard abs(delta)<=65 else {degrees=0;previous=nil;return false}
+        degrees=min(360,max(0,degrees+delta));previous=next
+        return degrees>=330
+    }
+}
+struct NativeUnlockControl:NSViewRepresentable {
+    final class UnlockView:NSView {
+        private var progress=CircularUnlockProgress()
+        private var timer:Timer?
+        private var heldAt:Date?
+        private var holdProgress:Double=0
+        override var acceptsFirstResponder:Bool {true}
+        override var mouseDownCanMoveWindow:Bool {false}
+        private var center:CGPoint {CGPoint(x:bounds.midX,y:bounds.midY)}
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if let window { window.makeFirstResponder(self) }
-            else { timer?.invalidate() }
+            if let window {window.makeFirstResponder(self)} else {cleanUp()}
         }
-        override func draw(_ dirtyRect: NSRect) {
-            let rail = NSRect(x: bounds.midX - 13, y: 6, width: 26, height: bounds.height - 12)
-            NSColor.white.withAlphaComponent(0.09).setFill(); NSBezierPath(roundedRect: rail, xRadius: 13, yRadius: 13).fill()
-            ("↑" as NSString).draw(at: NSPoint(x: bounds.midX - 7, y: bounds.height - 26), withAttributes: [.font: StageTypography.native(20), .foregroundColor: NSColor.white.withAlphaComponent(0.65)])
-            let thumb = NSRect(x: bounds.midX - 34, y: 8 + distance, width: 68, height: 42)
-            NSColor(calibratedRed: 0.58, green: 0.77, blue: 0.96, alpha: 1).setFill(); NSBezierPath(roundedRect: thumb, xRadius: 21, yRadius: 21).fill()
-            if let image = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: nil)?.withSymbolConfiguration(.init(paletteColors: [NSColor(calibratedRed: 0.07, green: 0.13, blue: 0.23, alpha: 1)])) {
-                image.draw(in: NSRect(x: thumb.midX - 9, y: thumb.midY - 10, width: 18, height: 20))
-            }
+        override func draw(_ dirtyRect:NSRect) {
+            let c=center,r:CGFloat=60
+            let circle=NSBezierPath(ovalIn:NSRect(x:c.x-r,y:c.y-r,width:r*2,height:r*2))
+            NSColor.white.withAlphaComponent(0.14).setStroke();circle.lineWidth=7;circle.stroke()
+            let fraction=max(progress.degrees/330,holdProgress)
+            let arc=NSBezierPath();arc.appendArc(withCenter:c,radius:r,startAngle:90,endAngle:90-CGFloat(fraction)*360,clockwise:true)
+            NSColor(calibratedRed:0.60,green:0.81,blue:1,alpha:1).setStroke();arc.lineWidth=7;arc.lineCapStyle = .round;arc.stroke()
+            let thumbAngle=(90-CGFloat(progress.degrees)) * .pi/180
+            let thumb=NSRect(x:c.x+cos(thumbAngle)*r-9,y:c.y+sin(thumbAngle)*r-9,width:18,height:18)
+            NSColor(calibratedRed:0.72,green:0.87,blue:1,alpha:1).setFill();NSBezierPath(ovalIn:thumb).fill()
+            let face=NSRect(x:c.x-22,y:c.y-22,width:44,height:44)
+            NSColor(calibratedRed:0.12,green:0.22,blue:0.32,alpha:1).setFill();NSBezierPath(roundedRect:face,xRadius:12,yRadius:12).fill()
+            if let image=NSImage(systemSymbolName:"lock.fill",accessibilityDescription:nil)?.withSymbolConfiguration(.init(paletteColors:[.white])) {image.draw(in:NSRect(x:c.x-9,y:c.y-11,width:18,height:22))}
+            setAccessibilityValue("\(Int(fraction*100)) percent")
         }
-        private func hold() {
-            timer?.invalidate()
-            let holdTimer = Timer(timeInterval: 0.92, repeats: false) { [weak self] _ in self?.unlock() }
-            timer = holdTimer; RunLoop.main.add(holdTimer, forMode: .common)
+        override func mouseDown(with event:NSEvent) {
+            window?.makeFirstResponder(self);progress.begin(convert(event.locationInWindow,from:nil),center:center);needsDisplay=true
         }
-        private func unlock() { timer?.invalidate(); _ = ControlLock.shared.unlock(heldFor: 0.92) }
-        override func mouseDown(with event: NSEvent) {
-            window?.makeFirstResponder(self)
-            originY = convert(event.locationInWindow, from: nil).y
-            distance = 0; hold(); needsDisplay = true
+        override func mouseDragged(with event:NSEvent) {
+            if progress.move(convert(event.locationInWindow,from:nil),center:center) {_ = ControlLock.shared.unlock(swipe:progress.degrees)}
+            needsDisplay=true
         }
-        override func mouseDragged(with event: NSEvent) {
-            guard let originY else { return }
-            distance = min(64, max(0, convert(event.locationInWindow, from: nil).y - originY))
-            if distance > 5 { timer?.invalidate() }
-            needsDisplay = true
-            if distance >= 60 { timer?.invalidate(); self.originY = nil; _ = ControlLock.shared.unlock(swipe: Double(distance)) }
+        override func mouseUp(with event:NSEvent) {progress=CircularUnlockProgress();needsDisplay=true}
+        override func keyDown(with event:NSEvent) {
+            guard !event.isARepeat,event.keyCode==49 || event.keyCode==36,heldAt==nil else {return}
+            heldAt=Date()
+            let ticker=Timer(timeInterval:0.04,repeats:true) {[weak self] _ in
+                guard let self,let started=self.heldAt else {return}
+                let seconds=Date().timeIntervalSince(started);self.holdProgress=min(1,seconds/3);self.needsDisplay=true
+                if seconds>=3 {self.cleanUp();_ = ControlLock.shared.unlock(heldFor:seconds)}
+            };timer=ticker;RunLoop.main.add(ticker,forMode:.common)
         }
-        override func mouseUp(with event: NSEvent) {
-            timer?.invalidate(); originY = nil; distance = 0; needsDisplay = true
-        }
-        override func keyDown(with event: NSEvent) { if !event.isARepeat, event.keyCode == 49 || event.keyCode == 36 { hold() } }
-        override func keyUp(with event: NSEvent) { if event.keyCode == 49 || event.keyCode == 36 { timer?.invalidate() } }
-        override func resignFirstResponder() -> Bool { timer?.invalidate(); return super.resignFirstResponder() }
-        override func accessibilityPerformPress() -> Bool { unlock(); return true }
-        func cleanUp() { timer?.invalidate() }
+        override func keyUp(with event:NSEvent) {if event.keyCode==49 || event.keyCode==36 {cleanUp()}}
+        override func resignFirstResponder()->Bool {cleanUp();return super.resignFirstResponder()}
+        // VoiceOver focuses this control; Space/Return must still be held for three seconds.
+        override func accessibilityPerformPress()->Bool {window?.makeFirstResponder(self);return true}
+        func cleanUp() {timer?.invalidate();timer=nil;heldAt=nil;holdProgress=0;needsDisplay=true}
     }
-    func makeNSView(context: Context) -> UnlockView {
-        let view = UnlockView(); view.setAccessibilityElement(true); view.setAccessibilityRole(.button)
-        view.setAccessibilityLabel("Unlock Controls")
-        view.setAccessibilityHelp("Drag up or hold Space for one second")
+    func makeNSView(context:Context)->UnlockView {
+        let view=UnlockView();view.setAccessibilityElement(true);view.setAccessibilityRole(.button)
+        view.setAccessibilityLabel("Unlock Controls");view.setAccessibilityHelp("Drag clockwise around the ring, or hold Space for three seconds")
         return view
     }
-    func updateNSView(_ view: UnlockView, context: Context) {}
-    static func dismantleNSView(_ view: UnlockView, coordinator: ()) { view.cleanUp() }
+    func updateNSView(_ view:UnlockView,context:Context) {}
+    static func dismantleNSView(_ view:UnlockView,coordinator:()) {view.cleanUp()}
 }
-
-struct UnlockShield: View {
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            Color.black.opacity(0.04).contentShape(Rectangle()).onTapGesture {}
-            VStack(spacing: 6) {
-                Text("Controls locked · music continues").font(.stage(size: 12, weight: .medium))
-                NativeUnlockControl().frame(width: 110, height: 120)
-                Text("Drag up or hold Space").font(.stage(size: 11)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.7))
-            }.padding(12).frame(maxWidth: .infinity)
-                .background(Color(red: 0.055, green: 0.10, blue: 0.18).opacity(0.97))
+struct UnlockShield:View {
+    var body:some View {
+        ZStack(alignment:.topTrailing) {
+            Color.black.opacity(0.22).contentShape(Rectangle()).onTapGesture {}
+            VStack(spacing:8) {
+                NativeUnlockControl().frame(width:148,height:148)
+                Text("Swipe clockwise to unlock").font(.stage(size:13))
+                Text("or hold Space · 3 seconds").font(.stage(size:11)).foregroundStyle(.secondary)
+                Text("Music keeps playing").font(.stage(size:11)).foregroundStyle(.secondary)
+            }.padding(14).background(.ultraThinMaterial,in:RoundedRectangle(cornerRadius:24)).padding(8)
         }.disabled(false)
     }
 }
@@ -267,7 +287,7 @@ struct PlayerView: View {
     }
     @ViewBuilder private var playerBody: some View {
         if compact { stageBody(wide:false).frame(minWidth:380) }
-        else if workspace.mode == .single,let section=workspace.section {workspaceBody(section)}
+        else if let section=workspace.section {workspaceBody(section)}
         else {
             GeometryReader { geometry in
                 let wide=geometry.size.width >= 840
@@ -292,7 +312,7 @@ struct PlayerView: View {
                 HStack(spacing:6) {
                     Button {workspace.player()} label:{MarkerLabel("Player",systemImage:"play.fill").font(.stage(size:11)).padding(7)}.buttonStyle(PlayerControlStyle())
                     ForEach(WorkspaceSection.allCases) {tab in
-                        Button {workspace.present(tab)} label:{Text(tab.title).font(.stage(size:11)).padding(7)}
+                        Button {workspace.open(tab,at:.inside)} label:{Text(tab.title).font(.stage(size:11)).padding(7)}
                             .buttonStyle(PlayerControlStyle(active:section == tab)).accessibilityLabel("Workspace: "+tab.title)
                     }
                 }
@@ -312,6 +332,7 @@ struct PlayerView: View {
     private func stageBody(wide:Bool) -> some View {
         VStack(spacing:appearance.theme.spacing) {
             header
+            QuickActionBar()
             BackupStatusStrip()
             let layout = wide && !playlistWindow.detached ? AnyLayout(HStackLayout(alignment:.top,spacing:22)) : AnyLayout(VStackLayout(spacing:10))
             layout {
@@ -497,11 +518,8 @@ struct PlayerView: View {
             .disabled(lock.isLocked)
     }
     private var header: some View {
-        HStack(spacing:3) {
-            Group {
-                if compact {HardPlayWordmark()}else {HardPlayShieldWordmark().padding(.leading,8)}
-            }.accessibilityElement(children:.ignore).accessibilityLabel("Hard Play")
-            Spacer()
+        HStack(spacing:8) {
+            Spacer(minLength:0)
             if !compact {
                 Button {workspace.toggle()} label:{MarkerIcon(systemName:workspace.mode == .single ? "workspace.single":"workspace.nearby",size:18).frame(width:28,height:32)}
                     .buttonStyle(PlayerControlStyle(active:workspace.mode == .single)).accessibilityLabel("Workspace Mode").accessibilityValue(workspace.title)
@@ -528,9 +546,9 @@ struct PlayerView: View {
             if !compact {
             Button { player.undoEdit() } label: { MarkerIcon(systemName:"arrow.uturn.backward").frame(width:24,height:28) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Undo Playlist Edit").stageHint("Undo playlist edit · ⌘Z").disabled(!player.canUndoEdit || setup.editsBlocked || lock.isLocked)
             }
-            Button { AppDelegate.shared.showSettingsWindow() } label: { MarkerIcon(systemName:"slider.horizontal.3").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Settings").stageHint("Audio, playback and button hints",below:true).disabled(lock.isLocked)
+            Button { AppDelegate.shared.showSettingsWindow() } label: { MarkerIcon(systemName:"slider.horizontal.3").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Settings").stageHint("Audio, playback and button hints",below:true).windowDestinationMenu(.settings).disabled(lock.isLocked)
             if !compact {
-                HStack(spacing:3) {
+                HStack(spacing:8) {
                     Button {AppDelegate.shared.toggleMini()} label: {MarkerIcon(systemName:"player.mini",size:19).frame(width:32,height:32)}
                         .buttonStyle(PlayerControlStyle(active:windows.mini)).accessibilityLabel("Mini Player").accessibilityValue(windows.mini ? "Open":"Hidden").stageHint("Mini · open or hide the floating player").mapAction("mini")
                     Button {AppDelegate.shared.toggleNano()} label: {MarkerIcon(systemName:"player.nano",size:19).frame(width:32,height:32)}
@@ -559,7 +577,7 @@ struct PlayerView: View {
         }.disabled(player.current == nil)
     }
     private var restartButtons: some View {
-        HStack(spacing:6) {
+        HStack(spacing:12) {
             Button { player.restart() } label: { MarkerLabel("Restart",systemImage:"arrow.counterclockwise").font(.stage(size:11)).padding(.horizontal,9).frame(height:34) }.buttonStyle(PlayerControlStyle(outline:.capsule)).stageHint("Restart from 0:00").mapAction("restart")
             Button { player.resumeSaved() } label: { MarkerLabel("Resume",systemImage:"play.fill").font(.stage(size:11)).padding(.horizontal,9).frame(height:34) }.buttonStyle(PlayerControlStyle(active:true)).stageHint("Resume track").mapAction("resume")
         }.disabled(player.current == nil || setup.playbackBlocked)
@@ -573,11 +591,13 @@ struct PlayerView: View {
                     .buttonStyle(PlayerControlStyle(active:setup.settingsBlocked)).accessibilityLabel(setup.settingsBlocked ? "Unlock Settings":"Lock Settings").stageHint(setup.settingsBlocked ? "Unlock settings":"Protect settings")
             }
             Group {
-            Button { AppDelegate.shared.showThemesWindow() } label: { MarkerLabel("Themes & Appearance…",systemImage:"paintpalette").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
-            Button { AppDelegate.shared.showMappings() } label: { MarkerLabel("Keyboard / MIDI…",systemImage:"pianokeys").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
-            Button { AppDelegate.shared.showBackupWindow() } label: { MarkerLabel("Timecode & Backup…",systemImage:"network").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
-            Button {AppDelegate.shared.showWebViewer()} label: {MarkerLabel("Web Viewer…",systemImage:"iphone").font(.stage(size:12)).padding(8)}.buttonStyle(PlayerControlStyle())
+            Button { AppDelegate.shared.showThemesWindow() } label: { MarkerLabel("Themes & Appearance…",systemImage:"paintpalette").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.themes)
+            Button { AppDelegate.shared.showMappings() } label: { MarkerLabel("Keyboard / MIDI…",systemImage:"pianokeys").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.mappings)
+            Button { AppDelegate.shared.showBackupWindow() } label: { MarkerLabel("Timecode & Backup…",systemImage:"network").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.backup)
+            Button {AppDelegate.shared.showWebViewer()} label: {MarkerLabel("Web Viewer…",systemImage:"iphone").font(.stage(size:12)).padding(8)}.buttonStyle(PlayerControlStyle()).windowDestinationMenu(.viewer)
             Button {workspace.toggle()} label:{MarkerLabel("Workspace: "+workspace.title,systemImage:workspace.mode == .single ? "workspace.single":"workspace.nearby").padding(7)}.buttonStyle(PlayerControlStyle())
+            WindowDestinationSettings()
+            QuickActionSettings()
             Toggle("Auto fit player height",isOn:$windows.autoFit)
             Toggle("Nano on minimize / close",isOn:$windows.nanoOnMinimize)
             Toggle("Show button hints",isOn:$hints.enabled)

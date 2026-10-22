@@ -35,7 +35,7 @@ struct PocketPlayerView: View {
                     if lock.isLocked { PocketUnlockControl().frame(height:30) }
                     else { Button("Lock controls") { lock.lock() }.font(.stage(size:10,weight:.semibold)).buttonStyle(.bordered).accessibilityLabel("Lock Widget Controls") }
                 }
-                Text(lock.isLocked ? "Music continues. Hold 1 sec to unlock.":"Play & skip are available.").font(.stage(size:9)).foregroundStyle(.white.opacity(0.65)).fixedSize(horizontal:false,vertical:true)
+                Text(lock.isLocked ? "Music continues. Hold 3 sec to unlock.":"Play & skip are available.").font(.stage(size:9)).foregroundStyle(.white.opacity(0.65)).fixedSize(horizontal:false,vertical:true)
             }.padding(10).frame(width:148).background(Color(red:0.07,green:0.11,blue:0.17).opacity(0.98),in:RoundedRectangle(cornerRadius:12))
     }
     private func lockRow(_ title:String,state:String,symbol:String,locked:Bool)->some View {
@@ -83,6 +83,7 @@ struct PocketPlayerView: View {
                     Text(lock.isLocked ? "LOCKED":"READY").font(.stage(size:6,weight:.bold,design:.monospaced))
                 }.padding(12)
             }.frame(width:wheel,height:wheel).foregroundStyle(.white).disabled(lock.isLocked)
+            .overlay {if lock.isLocked {NativeUnlockControl().frame(width:148,height:148).background(.ultraThinMaterial,in:Circle()).accessibilityLabel("Unlock Pocket Controls")}}
             Spacer(minLength:0)
         }.padding(14).frame(width:width,height:height).background(LinearGradient(colors:[Color(red:0.22,green:0.26,blue:0.32),Color(red:0.09,green:0.12,blue:0.17)],startPoint:.topLeading,endPoint:.bottomTrailing),in:RoundedRectangle(cornerRadius:25))
             .overlay(RoundedRectangle(cornerRadius:25).stroke(.white.opacity(0.25),lineWidth:1))

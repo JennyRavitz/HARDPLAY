@@ -925,6 +925,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if window === quickEditWindow {return .editor};if window === themesWindow {return .themes};if window === mappingWindow {return .mappings}
         if window === backupWindow {return .backup};if window === viewerWindow {return .viewer};if window === settingsWindow {return .settings};return nil
     }
+    func hideWorkspacePanel(_ target:WorkspaceSection) {
+        workspaceWindows.first(where:{workspaceSection(for:$0)==target})?.orderOut(nil)
+    }
     func makeRoomForWorkspace() {
         guard let window=mainWindow,let screen=window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame,!window.styleMask.contains(.fullScreen) else {return}
         window.contentMinSize=NSSize(width:min(700,screen.width),height:min(650,max(420,screen.height-28)))
@@ -935,14 +938,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func workspaceModeChanged() {
         let workspace=WorkspaceState.shared
         if workspace.mode == .single {
-            let target=workspaceWindows.first(where:{$0.isKeyWindow}).flatMap(workspaceSection) ?? workspaceWindows.first(where:{$0.isVisible}).flatMap(workspaceSection)
-            workspace.editor=quickEditModel;workspace.section=target
+            let eligible=workspaceWindows.filter {window in workspaceSection(for:window).map {workspace.destination($0) == .workspace} ?? true}
+            let target=eligible.first(where:{$0.isKeyWindow}).flatMap(workspaceSection) ?? eligible.first(where:{$0.isVisible}).flatMap(workspaceSection)
+            workspace.editor=quickEditModel;if let target {workspace.section=target}
             quickEditModel?.hover(nil);quickEditModel?.stopPreview()
-            for window in workspaceWindows {window.orderOut(nil)}
+            for window in eligible {window.orderOut(nil)}
             if PlaylistWindowState.shared.detached {PlaylistWindowState.shared.attach(toMini:false)}
             showMain();if target != nil {makeRoomForWorkspace()}
         }else {
-            let target=workspace.section;workspace.section=nil
+            let target=workspace.section
+            if let target,workspace.destination(target) != .workspace {arrangeWorkspaceWindows();return}
+            workspace.section=nil
             switch target {
             case .settings:showSettingsWindow()
             case .themes:showThemesWindow()
@@ -956,9 +962,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
     func arrangeWorkspaceWindows(preferred:NSWindow?=nil) {
-        guard !arrangingWorkspace,WorkspaceState.shared.mode == .nearby,let main=mainWindow,main.isVisible,!main.styleMask.contains(.fullScreen),let screen=main.screen?.visibleFrame ?? NSScreen.main?.visibleFrame else {return}
+        guard !arrangingWorkspace,let main=mainWindow,main.isVisible,!main.styleMask.contains(.fullScreen),let screen=main.screen?.visibleFrame ?? NSScreen.main?.visibleFrame else {return}
         arrangingWorkspace=true;defer {arrangingWorkspace=false}
-        var windows=workspaceWindows.filter {$0.isVisible && !$0.isMiniaturized}
+        var windows=workspaceWindows.filter {window in
+            window.isVisible && !window.isMiniaturized && (workspaceSection(for:window).map {WorkspaceState.shared.followsPlayer($0)} ?? (WorkspaceState.shared.mode == .nearby))
+        }
         if let preferred,let i=windows.firstIndex(where:{$0 === preferred}) {windows.insert(windows.remove(at:i),at:0)}
         let frames=WorkspaceLayout.frames(main:main.frame,screen:screen,sizes:windows.map { $0.frame.size })
         for (window,frame) in zip(windows,frames) where window.frame != frame {window.setFrame(frame,display:true)}
@@ -974,13 +982,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func showSettingsWindow() {
         if WorkspaceState.shared.present(.settings) {return}
         guard !ControlLock.shared.isLocked else { return }
-        if !settingsWindow.isVisible { settingsWindow.setFrameOrigin(NSPoint(x:mainWindow.frame.maxX+12,y:mainWindow.frame.maxY-settingsWindow.frame.height)); settingsWindow.setFrame(settingsWindow.constrainFrameRect(settingsWindow.frame,to:mainWindow.screen),display:true) }
+        if !settingsWindow.isVisible,WorkspaceState.shared.followsPlayer(.settings) { settingsWindow.setFrameOrigin(NSPoint(x:mainWindow.frame.maxX+12,y:mainWindow.frame.maxY-settingsWindow.frame.height)); settingsWindow.setFrame(settingsWindow.constrainFrameRect(settingsWindow.frame,to:mainWindow.screen),display:true) }
         restore(settingsWindow);NSApp.activate(ignoringOtherApps:true)
     }
     @objc func showThemesWindow() {
         if WorkspaceState.shared.present(.themes) {return}
         guard !SetupLock.shared.settingsBlocked,!ControlLock.shared.isLocked else { return }
-        if !themesWindow.isVisible { themesWindow.setFrameOrigin(NSPoint(x:settingsWindow.frame.maxX+12,y:settingsWindow.frame.maxY-themesWindow.frame.height)) }
+        if !themesWindow.isVisible,WorkspaceState.shared.followsPlayer(.themes) { themesWindow.setFrameOrigin(NSPoint(x:settingsWindow.frame.maxX+12,y:settingsWindow.frame.maxY-themesWindow.frame.height)) }
         themesWindow.setFrame(themesWindow.constrainFrameRect(themesWindow.frame,to:mainWindow.screen),display:true)
         restore(themesWindow);NSApp.activate(ignoringOtherApps:true)
     }
@@ -1254,6 +1262,46 @@ if CommandLine.arguments.contains("--style-check") {
     protection.unlock()
     prefs.removePersistentDomain(forName:suite)
     print("PASS: Trigger/Toggle, live state, mute restore, MIDI press edges, mode persistence, legacy sets, invalid modes, settings protection and unlock")
+} else if CommandLine.arguments.contains("--workspace-test") {
+    func verify(_ value:Bool,line:UInt = #line) {if !value {print("FAIL workspace test at line \(line)");exit(1)}}
+    let suite="local.hardplay.workspace-test.\(UUID().uuidString)"
+    let prefs=UserDefaults(suiteName:suite)!
+    defer {prefs.removePersistentDomain(forName:suite)}
+    prefs.set("nearby",forKey:"workspaceMode")
+    let workspace=WorkspaceState(defaults:prefs)
+    verify(workspace.resolved(.themes) == .nearby)
+    workspace.setDestination(.inside,for:.themes)
+    workspace.setDestination(.independent,for:.editor)
+    workspace.setDestination(.ask,for:.settings)
+    let restored=WorkspaceState(defaults:prefs)
+    verify(restored.resolved(.themes) == .inside && restored.resolved(.editor) == .independent && restored.resolved(.settings) == .ask)
+    prefs.set(["viewer":"invalid"],forKey:"windowDestinations")
+    verify(WorkspaceState(defaults:prefs).destination(.viewer) == .workspace)
+    let buttons=QuickActions(defaults:prefs),themes=MappedAction(rawValue:"themes")
+    buttons.add(themes);let id=buttons.buttons[0].id
+    verify(buttons.buttons[0].behavior == .trigger)
+    buttons.behavior(.toggle,id:id);verify(buttons.buttons[0].behavior == .trigger)
+    buttons.assign(MappedAction(rawValue:"mini"),to:id);verify(buttons.buttons[0].behavior == .toggle)
+    buttons.add(MappedAction(rawValue:"volume"));verify(buttons.buttons.count==1)
+    for _ in 0..<5 {buttons.add(themes)}
+    verify(buttons.buttons.count==4 && QuickActions(defaults:prefs).buttons==buttons.buttons)
+    ControlLock.shared.lock();buttons.remove(id);verify(buttons.buttons.count==4)
+    workspace.setDestination(.nearby,for:.themes);verify(workspace.destination(.themes) == .inside)
+    verify(!ControlLock.shared.unlock(heldFor:2.99));_ = ControlLock.shared.unlock(heldFor:3)
+    var ring=CircularUnlockProgress()
+    let center=CGPoint.zero
+    func point(_ degrees:Double)->CGPoint {CGPoint(x:cos(degrees * .pi/180)*60,y:sin(degrees * .pi/180)*60)}
+    ring.begin(point(90),center:center)
+    for step in 1...32 {verify(!ring.move(point(90-Double(step)*10),center:center))}
+    verify(ring.move(point(-250),center:center))
+    ring.begin(point(90),center:center);verify(!ring.move(point(-90),center:center) && ring.degrees==0)
+    ring.begin(point(90),center:center);verify(!ring.move(center,center:center));verify(!ring.move(point(60),center:center))
+    ring.begin(point(90),center:center)
+    for step in 1...36 {_ = ring.move(point(90+Double(step)*10),center:center)}
+    verify(ring.degrees==0)
+    ring.begin(point(90),center:center);_ = ring.move(point(40),center:center);_ = ring.move(point(70),center:center);verify(abs(ring.degrees-20)<0.001)
+    buttons.remove(id);verify(buttons.buttons.count==3)
+    print("PASS: window destination persistence, unknown fallback, quick assignments/modes/limits, protected edits, continuous circular unlock, rejected jumps/straight drags/reverse motion, three-second hold")
 } else if CommandLine.arguments.contains("--mapping-test") {
     let suite = "local.hardplay.mapping-test.\(UUID().uuidString)"
     let isolated = UserDefaults(suiteName:suite)!
@@ -1294,7 +1342,7 @@ if CommandLine.arguments.contains("--style-check") {
     controls.receiveMIDI([0xB0,7,0,7,64,7,127],source:42)
     precondition(fired.suffix(3) == ["volume","volume","volume"])
     controls.mapping = true; controls.trigger(play); precondition(fired.count == 7)
-    controls.mapping = false; ControlLock.shared.lock(); controls.trigger(play); precondition(fired.count == 7); _ = ControlLock.shared.unlock(heldFor:1)
+    controls.mapping = false; ControlLock.shared.lock(); controls.trigger(play); precondition(fired.count == 7); _ = ControlLock.shared.unlock(heldFor:3)
     isolated.removePersistentDomain(forName:suite)
     print("PASS: MIDI learn, note/CC edges, running status, source isolation, shortcut conflict replacement, persistence, set validation and lock/map suppression")
 } else if CommandLine.arguments.contains("--playlist-test") {
@@ -1421,7 +1469,7 @@ if CommandLine.arguments.contains("--style-check") {
             let lockedProgress = player.fadeProgress
             try await Task.sleep(nanoseconds: 200_000_000)
             precondition(player.playing && player.fadeProgress > lockedProgress)
-            _ = ControlLock.shared.unlock(heldFor: 0.95)
+            _ = ControlLock.shared.unlock(heldFor: 3)
             player.pause()
             let pausedTime = player.elapsed, pausedGain = player.mixGains.1
             try await Task.sleep(nanoseconds: 350_000_000)
@@ -1615,9 +1663,9 @@ if CommandLine.arguments.contains("--style-check") {
     let lock = ControlLock()
     lock.lock(); precondition(lock.isLocked)
     precondition(!lock.unlock(swipe: 30) && lock.isLocked)
-    precondition(lock.unlock(swipe: 80) && !lock.isLocked)
+    precondition(lock.unlock(swipe: 340) && !lock.isLocked)
     lock.lock(); precondition(!lock.unlock(heldFor: 0.3))
-    precondition(lock.unlock(heldFor: 0.95) && !lock.isLocked)
+    precondition(lock.unlock(heldFor: 3) && !lock.isLocked)
     precondition(MenuBarBadge.state(hasTrack:false,playing:false,crossfading:false,error:nil) == .empty)
     precondition(MenuBarBadge.state(hasTrack:true,playing:false,crossfading:false,error:nil) == .paused)
     precondition(MenuBarBadge.state(hasTrack:true,playing:true,crossfading:false,error:nil) == .playing)

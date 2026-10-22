@@ -206,6 +206,6 @@ struct QuickEditView:View {
             .onChange(of:lock.isLocked) {_,value in if value {edit.stopPreview()}}
             .onChange(of:setup.playbackBlocked) {_,value in if value {edit.stopPreview()}}
             .onChange(of:player.playing) {_,value in if value {edit.stopPreview()}}
-            .onDisappear {if embedded || WorkspaceState.shared.mode == .single {edit.hover(nil);edit.stopPreview()}else {edit.close()}}
+            .onDisappear {if embedded || WorkspaceState.shared.section == .editor {edit.hover(nil);edit.stopPreview()}else {edit.close()}}
     }
 }

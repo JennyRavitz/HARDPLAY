@@ -5,7 +5,7 @@ struct QueuePolicyControls: View {
     @ObservedObject var player: Player
     @ObservedObject private var setup = SetupLock.shared
     var body: some View {
-        HStack(spacing:5) {
+        HStack(spacing:8) {
             modeButton("Next Track",hint:"Play → next track",active:player.endMode == .next,first:"play.fill",second:"forward.end.fill") { player.endMode = .next }
             modeButton("Auto Stop",hint:"Play → stop at track end",active:player.endMode == .stop,first:"play.fill",second:"pause.fill") { player.endMode = .stop }
             Divider().frame(height:18)

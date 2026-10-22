@@ -6,7 +6,7 @@ Hard Play is a stage audio player for macOS, with an installable offline web edi
 
 ## Download and install on Mac
 
-Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.22.0). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
+Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.23.0). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
 - **macOS 14 Sonoma or newer.** Packaged builds are for **Apple Silicon (arm64)**. Intel Macs can build the source locally; these packages are not universal binaries.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.
@@ -32,7 +32,10 @@ The repository and Mac release downloads are public. The hosted web app currentl
 - Inline rename, per-track transitions, global **ALL 0 / 3s / 6s**, auto-stop, restart/resume, volume, shuffle and repeat.
 - Save/open playlists; native `.hardplay` and web `.hardplay.json` store metadata, not audio. Web additionally supports individual play-time caps and total set timing.
 - **Workspace Mode** switches between nearby separate utility windows and one tabbed window containing Settings, Themes, MIDI/Keys, Backup, Viewer and Audio Edit. The tabbed workspace keeps transport controls visible. Nearby panels are arranged relative to the main window, using a cascade when the display has insufficient free space.
-- Raised hardware-style controls use beveled edges, lighting and press depth; the expandable hint strip uses larger lettering.
+- **Settings → Window opening preferences** chooses Inside Player, Nearby, Independent, Ask Each Time, or Workspace Default separately for each utility panel. Right-click a panel button for a one-time destination. Nearby panels follow the main window; independent panels keep their own position.
+- **Settings → Custom quick buttons** adds up to four reassignable buttons below the toolbar. Right-click a quick button to choose an action, Trigger/Toggle mode where supported, or remove it. Window-opening actions use the same destination preferences. Keyboard/MIDI mappings include these new actions.
+- Raised hardware-style controls use beveled edges, lighting and press depth; the expandable hint strip uses larger lettering. Main and Mini headers omit the wordmark and use wider button gaps.
+- **Lock Controls** keeps music running. Drag clockwise around the 60-point ring to unlock. Straight drags, jumps, reverse motion and a short click do not unlock. Keyboard alternative: focus the ring and hold Space/Return for three seconds.
 - New **Speaker Grille** and **Road Case** themes add perforated metal, equipment controls and flight-case trim. The main wordmark is a metal shield badge; tape labels use cleaner edges.
 - Header buttons open **Mini**, **Nano** and **Full Screen**. **Auto Nano** chooses whether minimizing/closing opens the companion above ordinary desktop windows. **Auto Fit** follows content height and removes empty space. **?** expands/collapses the top hover-hint strip.
 - Menu bar attach/detach (native), setup protection and full control lock. Right-click a deck or queue row → **Edit Audio…**.
@@ -104,7 +107,7 @@ Hover the seek bar to inspect the time without seeking. **My Set** toggles an at
 
 Tap the **left bezel beside the pocket display** to slide out the Locks panel; tap the same area again to hide it. There is no tiny icon to aim for. Position and Controls are separate, labelled controls: **Unlocked / Fixed** and **Available / Locked**. The display keeps a short state summary even when the panel is hidden.
 
-Drag the pocket player anywhere using its top/body background while Position is unlocked. The position and position lock persist. The regular floating Mini Player also has its own position lock. Fixing position does not disable playback. Lock Controls disables playback/skip; hold **Hold to unlock** for one second to unlock. The native hold control owns the entire gesture so mouse release cannot relock it.
+Drag the pocket player anywhere using its top/body background while Position is unlocked. The position and position lock persist. The regular floating Mini Player also has its own position lock. Fixing position does not disable playback. Lock Controls disables playback/skip; swipe clockwise around the 60-point unlock ring, or hold Space for three seconds. The pocket drawer also offers a three-second hold button. The native hold control owns the entire gesture so mouse release cannot relock it.
 
 ### Desktop placement (0.15.2)
 
