@@ -49,7 +49,7 @@ private struct HintScope:ViewModifier {
     @ObservedObject private var preferences=HintPreferences.shared
     @ObservedObject private var lock=ControlLock.shared
     func body(content:Content)->some View {
-        VStack(spacing:0) {if preferences.enabled {HintBar(channel:channel)};content.environment(\.stageHintChannel,channel)}
+        VStack(spacing:0) {if preferences.enabled {HintBar(channel:channel).transition(.move(edge:.top).combined(with:.opacity))};content.environment(\.stageHintChannel,channel)}
             .onChange(of:preferences.enabled) {_,_ in channel.clear()}
             .onChange(of:lock.isLocked) {_,_ in channel.clear()}
     }

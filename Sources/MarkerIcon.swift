@@ -32,6 +32,21 @@ struct MarkerIcon:View {
         func circle(_ x:Double,_ y:Double,_ r:Double) {line((0...16).map {i in let a=Double(i)*Double.pi/8,dr=(i%3 == 0 ? 0.15:0);return (x+cos(a)*(r+dr),y+sin(a)*(r-dr))})}
         func arrow(_ left:Bool=false) {line(left ? [(14,5),(7,12),(14,19)]:[(10,5),(17,12),(10,19)])}
         switch name {
+        case "window.fit":
+            line([(3,3),(21,3)]);line([(3,21),(21,21)]);line([(12,5),(12,19)]);line([(8,9),(12,5),(16,9)]);line([(8,15),(12,19),(16,15)])
+        case "player.mini":box(3,4,18,16);box(12,12,7,6)
+        case "player.autoNano":
+            box(12,9,9,13);box(14,11,5,5);circle(16.5,19,1)
+            line([(3,3),(8,3),(8,13),(11,13)]);line([(5,10),(8,13),(11,10)])
+        case "player.nano":box(7,2,10,20);box(9,4,6,7);circle(12,16,3);circle(12,16,0.7)
+        case "player.fullscreen":
+            line([(3,9),(3,3),(9,3)]);line([(15,3),(21,3),(21,9)]);line([(21,15),(21,21),(15,21)]);line([(9,21),(3,21),(3,15)])
+        case "player.exitfullscreen":
+            line([(3,9),(9,9),(9,3)]);line([(15,3),(15,9),(21,9)]);line([(21,15),(15,15),(15,21)]);line([(9,21),(9,15),(3,15)])
+        case "playlist.detach":box(2,4,15,16);line([(5,8),(11,8)]);line([(5,12),(10,12)]);box(13,12,9,9);line([(16,9),(21,4),(17,4)]);line([(21,4),(21,8)])
+        case "playlist.embed":box(2,4,20,16);line([(14,4),(14,20)]);line([(17,8),(20,8)]);line([(17,12),(20,12)]);line([(5,12),(11,12)]);line([(8,9),(11,12),(8,15)])
+        case "questionmark":
+            p.move(to:.init(x:7,y:7));p.addCurve(to:.init(x:13,y:13),control1:.init(x:8,y:-2),control2:.init(x:25,y:5));line([(13,13),(12,15)]);circle(12,20,0.6)
         case "play.fill","play":line([(7,4),(20,12),(7,20),(7,4)])
         case "pause.fill","pause":line([(7,5),(7,19)]);line([(16,5),(16,19)])
         case "stop.fill","stop":box(5,5,14,14)

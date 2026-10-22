@@ -63,7 +63,7 @@ struct QueueTrackRow: View {
                 .accessibilityLabel(row.editing ? "Save Track Name" : "Rename Track: \(track.title)")
             Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerIcon(systemName:"scissors").font(.stage(size:12)).frame(width:24,height:28)}.buttonStyle(.plain).foregroundStyle(accent).disabled(setup.editsBlocked).accessibilityLabel("Quick Edit: \(track.title)").stageHint("Trim audio · save a copy or replace this item",below:true)
             Menu {
-                Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerLabel("Quick Edit…",systemImage:"scissors")}.disabled(setup.editsBlocked)
+                Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerLabel("Edit Audio…",systemImage:"scissors")}.disabled(setup.editsBlocked)
                 Button { player.duplicate(track) } label: { MarkerLabel("Duplicate Track",systemImage:"doc.on.doc") }
                 Button { beginRename() } label: { MarkerLabel("Rename Track",systemImage:"pencil") }
                 Button("Use Filename") { player.rename(track,to:nil) }.disabled(track.customTitle == nil)
@@ -89,7 +89,7 @@ struct QueueTrackRow: View {
             .onChange(of:lock.isLocked) { _, locked in if locked { finishRename(save:false) } }
             .contextMenu {
                 Button { player.play(track) } label: { MarkerLabel("Play",systemImage:"play.fill") }.disabled(setup.selectionBlocked || setup.playbackBlocked)
-                Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerLabel("Quick Edit…",systemImage:"scissors")}.disabled(setup.editsBlocked)
+                Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerLabel("Edit Audio…",systemImage:"scissors")}.disabled(setup.editsBlocked)
                 Button { player.duplicate(track) } label: { MarkerLabel("Duplicate Track",systemImage:"doc.on.doc") }.disabled(setup.editsBlocked)
                 Divider()
                 Button { beginRename() } label: { MarkerLabel("Rename Track",systemImage:"pencil") }.disabled(setup.editsBlocked)

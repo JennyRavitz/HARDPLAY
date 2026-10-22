@@ -74,7 +74,7 @@ final class ControlLock: ObservableObject {
 
 struct TapeEdge: Shape {
     func path(in r: CGRect) -> Path {
-        let points: [(Double, Double)] = [(0.02,0),(0.98,0.02),(1,0.17),(0.98,0.32),(1,0.49),(0.99,0.67),(1,0.84),(0.98,1),(0.01,0.97),(0.02,0.81),(0,0.64),(0.02,0.45),(0,0.24)]
+        let points: [(Double, Double)] = [(0.018,0.012),(0.986,0),(1,0.1),(0.994,0.48),(1,0.9),(0.985,1),(0.012,0.988),(0,0.88),(0.006,0.5),(0,0.13)]
         var p = Path(); p.move(to: CGPoint(x: r.width * points[0].0, y: r.height * points[0].1))
         for point in points.dropFirst() { p.addLine(to: CGPoint(x: r.width * point.0, y: r.height * point.1)) }; p.closeSubpath(); return p
     }
@@ -151,6 +151,12 @@ struct StageDeck: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background((right ? tapeB : accent).opacity(0.065), in: RoundedRectangle(cornerRadius: appearance.theme.radius))
+        .contextMenu {
+            if let track {
+                Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerLabel("Edit Audio…",systemImage:"scissors")}
+                    .disabled(SetupLock.shared.editsBlocked || ControlLock.shared.isLocked)
+            }
+        }
         .task(id: track.map(Waveforms.key)) { if let track { await waves.load(track) } }
     }
 }
@@ -229,6 +235,14 @@ struct UnlockShield: View {
     }
 }
 
+private struct PlayerFitHeightKey:PreferenceKey {
+    static var defaultValue:CGFloat=0
+    static func reduce(value:inout CGFloat,nextValue:()->CGFloat) {value=max(value,nextValue())}
+}
+private struct QueueFitHeightKey:PreferenceKey {
+    static var defaultValue:CGFloat=0
+    static func reduce(value:inout CGFloat,nextValue:()->CGFloat) {value=max(value,nextValue())}
+}
 struct PlayerView: View {
     @ObservedObject var player = Player.shared
     @ObservedObject var lock = ControlLock.shared
@@ -237,6 +251,7 @@ struct PlayerView: View {
     @ObservedObject var playlistWindow = PlaylistWindowState.shared
     @ObservedObject var hints = HintPreferences.shared
     @ObservedObject var placement = FloatingPlacement.shared
+    @ObservedObject var windows = WindowPresentation.shared
     var compact = false
     var settingsOnly = false
     @ObservedObject var appearance = AppearancePreferences.shared
@@ -253,11 +268,17 @@ struct PlayerView: View {
             GeometryReader { geometry in
                 let wide=geometry.size.width >= 840
                 let required:CGFloat=playlistWindow.detached ? 660:(wide ? 720:820)
-                if geometry.size.height < required {
+                if windows.autoFit {
+                    ScrollView(.vertical) {
+                        stageBody(wide:wide).fixedSize(horizontal:false,vertical:true)
+                            .background(GeometryReader {proxy in Color.clear.preference(key:PlayerFitHeightKey.self,value:proxy.size.height)})
+                    }.onPreferenceChange(PlayerFitHeightKey.self) {windows.measure($0)}
+                        .onChange(of:hints.enabled) {_,_ in windows.requestFit()}
+                }else if geometry.size.height < required {
                     ScrollView(.vertical) {stageBody(wide:wide).frame(minHeight:required)}
                 }else {stageBody(wide:wide)}
             }
-                .frame(minWidth:520,minHeight:600)
+                .frame(minWidth:600,minHeight:420)
         }
     }
     private func stageBody(wide:Bool) -> some View {
@@ -267,10 +288,10 @@ struct PlayerView: View {
             let layout = wide && !playlistWindow.detached ? AnyLayout(HStackLayout(alignment:.top,spacing:22)) : AnyLayout(VStackLayout(spacing:10))
             layout {
                 playbackPanel.frame(maxWidth:.infinity,alignment:.top)
-                playlistPanel.frame(maxWidth:.infinity,maxHeight:compact ? nil:.infinity,alignment:.top)
+                playlistPanel.frame(maxWidth:.infinity,maxHeight:compact || windows.autoFit ? nil:.infinity,alignment:.top)
             }.disabled(lock.isLocked).allowsHitTesting(!lock.isLocked)
         }
-        .padding(compact ? 14 : 16).frame(maxWidth:.infinity,maxHeight:compact ? nil:.infinity,alignment:.top)
+        .padding(compact ? 14 : 16).frame(maxWidth:.infinity,maxHeight:compact || windows.autoFit ? nil:.infinity,alignment:.top)
         .foregroundStyle(Color(stageHex:appearance.theme.text)).preferredColorScheme(.dark).font(.stage(.body))
         .overlay { if lock.isLocked { UnlockShield() } }
         .onChange(of:playlistWindow.detached) { _, detached in if detached { ui.playlist = false } }
@@ -325,22 +346,19 @@ struct PlayerView: View {
                 }.padding(.top,3)
                 if !compact {
                     HStack(spacing:6) {
-                        Button { playlistWindow.attach(toMini:false) } label: { MarkerLabel("In Player",systemImage:"rectangle.split.2x1").font(.stage(size:11)).padding(6) }
-                            .buttonStyle(PlayerControlStyle(active:!playlistWindow.detached)).accessibilityLabel("Playlist In Player")
+                        playlistPresentationButton(toMini:false)
                         Menu {
                             ForEach(PlaylistDockEdge.allCases,id:\.rawValue) { side in
                                 Button(side.title) { playlistWindow.dock(side) }
                             }
                         } label: { MarkerLabel(playlistWindow.edge?.title ?? "Dock",systemImage:"rectangle.split.2x1").font(.stage(size:11)).padding(6) }
                             .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Playlist Dock Side")
-                        Button { playlistWindow.toggleSeparate() } label: { MarkerLabel("Separate Window",systemImage:"arrow.up.right.square").font(.stage(size:11)).padding(6) }
-                            .buttonStyle(PlayerControlStyle(active:playlistWindow.separateVisible)).accessibilityLabel("Playlist Separate Window").accessibilityValue(playlistWindow.separateVisible ? "Open":"Hidden").stageHint(playlistWindow.separateVisible ? "Hide separate playlist window":"Open separate playlist window")
                         Spacer(minLength:0)
                     }
                     if playlistWindow.detached {
                         Button { AppDelegate.shared.showPlaylistWindow() } label: {
                             MarkerLabel("Open Playlist Window",systemImage:"rectangle.on.rectangle").font(.stage(size:12)).frame(maxWidth:.infinity).padding(.vertical,16)
-                        }.buttonStyle(PlayerControlStyle()).frame(maxHeight:.infinity,alignment:.top)
+                        }.buttonStyle(PlayerControlStyle()).frame(maxHeight:windows.autoFit ? nil:.infinity,alignment:.top)
                     } else { queue }
                 }
         }
@@ -363,12 +381,22 @@ struct PlayerView: View {
             Menu("Recent Playlists") { ForEach(player.recentPlaylists,id:\.path) { url in Button(url.deletingPathExtension().lastPathComponent) { ui.playlist = false; player.openPlaylist(url) } } }.disabled(setup.editsBlocked)
         }
     }
+    private func playlistPresentationButton(toMini:Bool)->some View {
+        Button {
+            ui.playlist=false
+            if playlistWindow.detached {playlistWindow.attach(toMini:toMini)}else {playlistWindow.detach(fromMini:toMini)}
+        } label: {
+            MarkerIcon(systemName:playlistWindow.detached ? "playlist.embed":"playlist.detach",size:21).frame(width:36,height:34)
+        }.buttonStyle(PlayerControlStyle(active:playlistWindow.detached))
+            .accessibilityLabel(playlistWindow.detached ? "Embed Playlist":"Separate Playlist")
+            .accessibilityValue(playlistWindow.detached ? "Separate window":"Inside player")
+            .stageHint(playlistWindow.detached ? "Bring the playlist back inside this player":"Move the playlist into its own window")
+    }
     private var miniPlaylist: some View {
         VStack(alignment:.leading,spacing:10) {
             HStack {
                 Text(player.playlistName).font(.stage(size:14,weight:.semibold)); Spacer()
-                Button { ui.playlist = false; playlistWindow.detach() } label: { MarkerIcon(systemName:"arrow.up.right.square").font(.stage(size:13)).frame(width:30,height:30) }
-                    .buttonStyle(PlayerControlStyle()).accessibilityLabel("Detach Playlist").stageHint("Detach playlist")
+                playlistPresentationButton(toMini:true)
             }
             if setup.isLocked { MarkerLabel("Setup locked",systemImage:"lock.fill").font(.stage(size:10)).foregroundStyle(accent) }
             queue.frame(height:min(300,max(100,CGFloat(player.tracks.count)*56)))
@@ -387,6 +415,7 @@ struct PlayerView: View {
                 Spacer()
                 Button { AppDelegate.shared.minimize(AppDelegate.shared.playlistWindow) } label: { MarkerIcon(systemName:"minus").frame(width:28,height:28) }
                     .buttonStyle(PlayerControlStyle()).accessibilityLabel("Minimize Playlist").stageHint("Minimize playlist · restore from menu bar")
+                playlistPresentationButton(toMini:playlistWindow.fromMini)
                 Menu {
                     ForEach(PlaylistDockEdge.allCases,id:\.rawValue) { side in Button(side.title) { playlistWindow.dock(side,fromMini:playlistWindow.fromMini) } }
                     Button("Detach Window") { playlistWindow.detach() }
@@ -440,13 +469,15 @@ struct PlayerView: View {
             .disabled(lock.isLocked)
     }
     private var header: some View {
-        HStack(spacing:8) {
-            HStack(spacing:4) {
-                HardPlayArtwork().frame(width:30,height:30)
-                HardPlayWordmark()
+        HStack(spacing:compact ? 4:6) {
+            Group {
+                if compact {HardPlayWordmark()}else {HardPlayShieldWordmark().padding(.leading,8)}
             }.accessibilityElement(children:.ignore).accessibilityLabel("Hard Play")
             Spacer()
             if !compact {
+                Button {windows.autoFit.toggle()} label: {MarkerIcon(systemName:"window.fit",size:18).frame(width:28,height:32)}
+                    .buttonStyle(PlayerControlStyle(active:windows.autoFit)).accessibilityLabel("Auto Fit Window").accessibilityValue(windows.autoFit ? "On":"Off")
+                    .stageHint(windows.autoFit ? "Auto Fit ON · window height follows the playlist; click for manual sizing":"Auto Fit OFF · click to remove empty space and follow playlist height").disabled(lock.isLocked)
                 Button { AppDelegate.shared.toggleWideLayout() } label: { MarkerIcon(systemName:"arrow.left.and.right").frame(width:32,height:32) }
                     .buttonStyle(PlayerControlStyle()).accessibilityLabel("Toggle Wide Layout").stageHint("Wide / standard layout · drag window edges to resize").disabled(lock.isLocked)
             }
@@ -463,9 +494,28 @@ struct PlayerView: View {
             if compact && !menuBar {
                 Button { placement.miniLocked.toggle() } label: { MarkerIcon(systemName:placement.miniLocked ? "lock.rectangle.fill":"lock.rectangle").frame(width:24,height:28) }.buttonStyle(PlayerControlStyle(active:placement.miniLocked)).accessibilityLabel(placement.miniLocked ? "Unlock Window Position":"Lock Window Position").stageHint("Lock window position · playback stays available")
             }
+            if !compact {
             Button { player.undoEdit() } label: { MarkerIcon(systemName:"arrow.uturn.backward").frame(width:24,height:28) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Undo Playlist Edit").stageHint("Undo playlist edit · ⌘Z").disabled(!player.canUndoEdit || setup.editsBlocked || lock.isLocked)
+            }
             Button { AppDelegate.shared.showSettingsWindow() } label: { MarkerIcon(systemName:"slider.horizontal.3").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Settings").stageHint("Audio, playback and button hints",below:true).disabled(lock.isLocked)
-            Button { AppDelegate.shared.toggleMini() } label: { MarkerIcon(systemName:"pip").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle()).accessibilityLabel("Mini Player").stageHint("Show or hide the floating player",below:true).mapAction("mini").disabled(lock.isLocked)
+            if !compact {
+                HStack(spacing:3) {
+                    Button {AppDelegate.shared.toggleMini()} label: {MarkerIcon(systemName:"player.mini",size:19).frame(width:32,height:32)}
+                        .buttonStyle(PlayerControlStyle(active:windows.mini)).accessibilityLabel("Mini Player").accessibilityValue(windows.mini ? "Open":"Hidden").stageHint("Mini · open or hide the floating player").mapAction("mini")
+                    Button {AppDelegate.shared.toggleNano()} label: {MarkerIcon(systemName:"player.nano",size:19).frame(width:32,height:32)}
+                        .buttonStyle(PlayerControlStyle(active:windows.nano)).accessibilityLabel("Nano Player").accessibilityValue(windows.nano ? "Open":"Hidden").stageHint("Nano · open or hide the small desktop companion")
+                    Button {windows.nanoOnMinimize.toggle()} label: {MarkerIcon(systemName:"player.autoNano",size:19).frame(width:32,height:32)}
+                        .buttonStyle(PlayerControlStyle(active:windows.nanoOnMinimize)).accessibilityLabel("Nano on Minimize").accessibilityValue(windows.nanoOnMinimize ? "On":"Off")
+                        .stageHint(windows.nanoOnMinimize ? "Auto Nano ON · minimizing or closing a player opens the desktop companion above other windows":"Auto Nano OFF · minimizing or closing only hides the player; Nano can still be opened manually")
+                    Button {AppDelegate.shared.toggleStageFullScreen()} label: {MarkerIcon(systemName:windows.fullScreen ? "player.exitfullscreen":"player.fullscreen",size:19).frame(width:32,height:32)}
+                        .buttonStyle(PlayerControlStyle(active:windows.fullScreen)).accessibilityLabel(windows.fullScreen ? "Exit Full Screen":"Full Screen Player").stageHint(windows.fullScreen ? "Leave full screen · Esc":"Full Screen · use the main player across the screen")
+                }.disabled(lock.isLocked)
+            }else {
+                Button {AppDelegate.shared.showMain()} label: {MarkerIcon(systemName:"player.fullscreen").frame(width:28,height:28)}
+                    .buttonStyle(PlayerControlStyle()).accessibilityLabel("Open Main Player").stageHint("Open the main player").disabled(lock.isLocked)
+            }
+            Button {withAnimation(.easeInOut(duration:0.18)) {hints.enabled.toggle()}} label: {MarkerIcon(systemName:"questionmark",size:18).frame(width:28,height:32)}
+                .buttonStyle(PlayerControlStyle(active:hints.enabled)).accessibilityLabel("Toggle Control Hints").accessibilityValue(hints.enabled ? "Shown":"Hidden").stageHint("Show or hide the hint strip above the player")
             Button { lock.lock() } label: { MarkerIcon(systemName:"lock").frame(width:32,height:32) }.buttonStyle(PlayerControlStyle(active:lock.isLocked)).accessibilityLabel("Lock Controls").stageHint("Lock controls · music keeps playing",below:true).mapAction("lock").disabled(lock.isLocked)
         }
     }
@@ -496,6 +546,8 @@ struct PlayerView: View {
             Button { AppDelegate.shared.showMappings() } label: { MarkerLabel("Keyboard / MIDI…",systemImage:"pianokeys").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
             Button { AppDelegate.shared.showBackupWindow() } label: { MarkerLabel("Timecode & Backup…",systemImage:"network").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
             Button {AppDelegate.shared.showWebViewer()} label: {MarkerLabel("Web Viewer…",systemImage:"iphone").font(.stage(size:12)).padding(8)}.buttonStyle(PlayerControlStyle())
+            Toggle("Auto fit player height",isOn:$windows.autoFit)
+            Toggle("Nano on minimize / close",isOn:$windows.nanoOnMinimize)
             Toggle("Show button hints",isOn:$hints.enabled)
             Text("Turn off for a distraction-free live set.").font(.stage(size:10)).foregroundStyle(.secondary)
             Divider()
@@ -519,7 +571,9 @@ struct PlayerView: View {
                 ForEach(player.tracks) { track in
                     QueueTrackRow(player:player,track:track)
                 }
-            }
-        }.frame(minHeight:compact ? 100:160,maxHeight:.infinity)
+            }.background(GeometryReader {proxy in Color.clear.preference(key:QueueFitHeightKey.self,value:proxy.size.height)})
+        }.frame(height:windows.autoFit && !compact && !playlistOnly ? min(360,max(54,ui.queueContentHeight>0 ? ui.queueContentHeight:CGFloat(player.tracks.count)*55)):nil)
+            .frame(minHeight:windows.autoFit && !compact && !playlistOnly ? 54:(compact ? 100:160),maxHeight:windows.autoFit && !compact && !playlistOnly ? nil:.infinity)
+            .onPreferenceChange(QueueFitHeightKey.self) {height in if abs(ui.queueContentHeight-height)>0.5 {ui.queueContentHeight=height}}
     }
 }

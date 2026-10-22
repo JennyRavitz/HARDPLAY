@@ -13,13 +13,15 @@ struct StageTheme: Codable {
     var spacing = 14.0
     var radius = 12.0
     var texture = true
-    static let names = ["Tape Blue", "Tape White", "Tape Black", "Stage", "Flightcase", "Cables", "Cinema", "Theatre", "Minimal"]
+    static let names = ["Tape Blue", "Tape White", "Tape Black", "Speaker Grille", "Road Case", "Stage", "Flightcase", "Cables", "Cinema", "Theatre", "Minimal"]
     static func named(_ name: String) -> StageTheme {
         var t = StageTheme(); t.preset = name
         switch name {
         case "Tape Blue": t.tape="ADC9E4";t.accent="ADC9E4";t.radius=6
         case "Tape White": t.tape="E9E5D9";t.accent="E9E5D9";t.radius=6
         case "Tape Black": t.tape="15181D";t.accent="C5D2E2";t.radius=6
+        case "Speaker Grille": t.background="171D24";t.accent="9EBED6";t.tape="B7CAD4";t.radius=5;t.opacity=0.97;t.spacing=12
+        case "Road Case": t.background="20252B";t.accent="BFCCD9";t.tape="D7C79E";t.radius=4;t.opacity=0.96;t.spacing=12
         case "Stage": t.background="27374B";t.tape="C8C8FB"
         case "Flightcase": t.background = "252C35"; t.accent = "BDD9ED"; t.tape = "EBCB89"; t.radius = 5
         case "Cables": t.background = "122C38"; t.accent = "7DDAEB"; t.tape = "E8BC95"; t.radius = 18
@@ -66,7 +68,26 @@ struct ThemedBackdrop: View {
                     Canvas { ctx,size in
                         let color = Color(stageHex:t.accent).opacity(0.055)
                         switch t.preset {
-                        case "Flightcase", "Tape Blue", "Tape White", "Tape Black":
+                        case "Speaker Grille":
+                            for row in 0...Int(size.height/9) {
+                                for x in stride(from:row%2 == 0 ? 3.0:7.5,to:size.width,by:9) {
+                                    let y=CGFloat(row)*9
+                                    ctx.fill(Path(ellipseIn:CGRect(x:x,y:y+0.7,width:4.6,height:4.6)),with:.color(.white.opacity(0.065)))
+                                    ctx.fill(Path(ellipseIn:CGRect(x:x,y:y,width:4.6,height:4.6)),with:.color(.black.opacity(0.5)))
+                                }
+                            }
+                        case "Road Case", "Flightcase":
+                            for y in stride(from:0.0,to:size.height,by:7) {
+                                var p=Path();p.move(to:.init(x:0,y:y));p.addLine(to:.init(x:size.width,y:y+size.width*0.12));ctx.stroke(p,with:.color(.white.opacity(0.025)),lineWidth:0.6)
+                            }
+                            let rail=CGRect(x:6,y:6,width:max(0,size.width-12),height:max(0,size.height-12))
+                            ctx.stroke(Path(roundedRect:rail,cornerRadius:11),with:.color(Color(stageHex:"7F8993").opacity(0.55)),lineWidth:7)
+                            ctx.stroke(Path(roundedRect:rail.insetBy(dx:4,dy:4),cornerRadius:8),with:.color(.black.opacity(0.7)),lineWidth:1)
+                            for x in [12.0,size.width-12] {for y in [12.0,size.height-12] {
+                                ctx.fill(Path(ellipseIn:CGRect(x:x-2.2,y:y-2.2,width:4.4,height:4.4)),with:.color(.white.opacity(0.5)))
+                                var screw=Path();screw.move(to:.init(x:x-1,y:y));screw.addLine(to:.init(x:x+1,y:y));ctx.stroke(screw,with:.color(.black.opacity(0.7)),lineWidth:0.7)
+                            }}
+                        case "Tape Blue", "Tape White", "Tape Black":
                             for x in stride(from:8.0,to:size.width,by:24) { for y in stride(from:8.0,to:size.height,by:24) { ctx.fill(Path(ellipseIn:CGRect(x:x,y:y,width:2,height:2)),with:.color(color)) } }
                         case "Cables":
                             for i in 0..<7 { var p=Path(); let y=CGFloat(i)*110; p.move(to:CGPoint(x:0,y:y)); p.addCurve(to:CGPoint(x:size.width,y:y+90),control1:CGPoint(x:size.width*0.65,y:y-80),control2:CGPoint(x:size.width*0.3,y:y+190)); ctx.stroke(p,with:.color(color),lineWidth:3) }
@@ -91,8 +112,8 @@ struct ThemeEditorView: View {
         ScrollView {
             VStack(alignment:.leading,spacing:16) {
                 Text("Themes & Appearance").font(.stage(.title2).bold())
-                Text("Marker lettering · hand-drawn icons · three tape colors. Live preview stays in the player.").font(.stage(.callout)).foregroundStyle(.secondary)
-                HStack {HardPlayWordmark();Spacer();HardPlayWordmark(layout:.stacked)}
+                Text("Marker lettering · refined tape · speaker grille and road-case hardware. Live preview stays in the player.").font(.stage(.callout)).foregroundStyle(.secondary)
+                HStack {HardPlayShieldWordmark();Spacer();HardPlayWordmark(layout:.stacked)}
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:8) {
                     ForEach(StageTheme.names,id:\.self) { name in
                         Button { appearance.theme = .named(name) } label: {

@@ -1,12 +1,12 @@
 # HARDPLAY
 
-<img src="assets/branding/hard-play-front-icon-v1.png" width="180" alt="Hard Play red Solo-button app icon">
+<img src="assets/branding/hardplay-beams-icon-v1.png" width="180" alt="Hard Play blue stage-beam app icon">
 
 Hard Play is a stage audio player for macOS, with an installable offline web edition. Blue and white translucent controls, two live decks, an independent playlist window, and quick access while working in other apps.
 
 ## Download and install on Mac
 
-Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/latest). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
+Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.22.0). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
 - **macOS 14 Sonoma or newer.** Packaged builds are for **Apple Silicon (arm64)**. Intel Macs can build the source locally; these packages are not universal binaries.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.
@@ -27,11 +27,13 @@ The repository and Mac release downloads are public. The hosted web app currentl
 
 - Two decks show NOW / NEXT, queue numbers, actual decoded waveforms, time and crossfade gains.
 - **↔ / Wide Layout** switches to a wide workspace: playback left, playlist right. Resize the native main window by its edges. The web layout adapts to the available browser width.
-- **In Player / Separate Window** places the playlist inside the player or in an independent window. Both use the same queue. The chain icon attaches it again.
+- The changing **window icon** embeds or separates the playlist in one click. Docking remains available. Both views use the same queue.
 - Selecting a title only selects it. Use the row’s **▶** to play. Right-click → **Duplicate Track** creates an independent queue occurrence.
 - Inline rename, per-track transitions, global **ALL 0 / 3s / 6s**, auto-stop, restart/resume, volume, shuffle and repeat.
 - Save/open playlists; native `.hardplay` and web `.hardplay.json` store metadata, not audio. Web additionally supports individual play-time caps and total set timing.
-- Floating mini player, menu bar attach/detach (native), setup protection, full control lock, optional hover hints.
+- New **Speaker Grille** and **Road Case** themes add perforated metal, equipment controls and flight-case trim. The main wordmark is a metal shield badge; tape labels use cleaner edges.
+- Header buttons open **Mini**, **Nano** and **Full Screen**. **Auto Nano** chooses whether minimizing/closing opens the companion above ordinary desktop windows. **Auto Fit** follows content height and removes empty space. **?** expands/collapses the top hover-hint strip.
+- Menu bar attach/detach (native), setup protection and full control lock. Right-click a deck or queue row → **Edit Audio…**.
 - Keyboard / MIDI mapping: choose Map, select an action, send a key or MIDI signal. Supported actions have Trigger / Toggle behavior. Physical MIDI controllers require hardware verification.
 
 Native codecs are provided by macOS; web codecs depend on the browser. Neither edition promises every audio format. The native and web editions have separate persistence and distinct platform features.

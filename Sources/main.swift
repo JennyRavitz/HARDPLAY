@@ -668,6 +668,7 @@ var accent: Color { Color(stageHex:AppearancePreferences.shared.theme.accent) }
 func timeLabel(_ seconds: Double) -> String { let n = Int(max(0, seconds.isFinite ? seconds : 0)); return String(format: "%d:%02d", n / 60, n % 60) }
 
 final class PlayerViewState: ObservableObject {
+    @Published var queueContentHeight:CGFloat=0
     @Published var search = ""
     @Published var targeted = false
     @Published var scrub: Double = 0
@@ -690,12 +691,13 @@ struct GlassBackdrop: NSViewRepresentable {
 }
 
 enum ControlOutline: Shape {
-    case circle, rounded, capsule
+    case circle, rounded, capsule, hardware
     func path(in rect: CGRect) -> Path {
         switch self {
         case .circle: return Circle().path(in: rect)
         case .rounded: return TapeEdge().path(in:rect)
         case .capsule: return Capsule().path(in: rect)
+        case .hardware:return RoundedRectangle(cornerRadius:4).path(in:rect)
         }
     }
 }
@@ -706,13 +708,17 @@ struct PlayerControlStyle: ButtonStyle {
     var active = false
     var primary = false
     @Environment(\.isEnabled) private var enabled
+    private var surface:ControlOutline {
+        if case .rounded=outline,["Road Case","Flightcase","Speaker Grille"].contains(appearance.theme.preset) {return .hardware}
+        return outline
+    }
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(primary ? Color(stageHex:AppearancePreferences.shared.theme.text) : (active ? tapeInk : Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.95)))
-            .background(primary ? accent.opacity(configuration.isPressed ? 0.65 : 0.3) : (active ? tapeB.opacity(configuration.isPressed ? 0.8:1) : Color.black.opacity(configuration.isPressed ? 0.35 : 0.22)), in: outline)
-            .overlay(TapeGrain().clipShape(outline))
-            .overlay(outline.stroke(primary ? accent.opacity(0.85) : (active ? accent.opacity(0.7) : Color.white.opacity(0.15)), lineWidth: 1))
-            .contentShape(outline)
+            .background(primary ? accent.opacity(configuration.isPressed ? 0.65 : 0.3) : (active ? tapeB.opacity(configuration.isPressed ? 0.8:1) : Color.black.opacity(configuration.isPressed ? 0.35 : 0.22)), in: surface)
+            .overlay(TapeGrain().clipShape(surface))
+            .overlay(surface.stroke(primary ? accent.opacity(0.85) : (active ? accent.opacity(0.7) : Color.white.opacity(0.15)), lineWidth: 1))
+            .contentShape(surface)
             .opacity(enabled ? 1 : 0.35)
             .scaleEffect(configuration.isPressed ? 0.95 : 1)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
@@ -813,8 +819,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.mainMenu = menu
     }
     func makeWindows() {
-        mainWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 680), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
-        mainWindow.contentMinSize = NSSize(width:520,height:620)
+        mainWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 680), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        mainWindow.contentMinSize = NSSize(width:600,height:620)
         mainWindow.isOpaque = false; mainWindow.backgroundColor = .clear
         mainWindow.appearance = NSAppearance(named: .darkAqua)
         mainWindow.title = "Hard Play"; mainWindow.titlebarAppearsTransparent = true
@@ -934,18 +940,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard !ControlLock.shared.isLocked else { return }
         let screen = mainWindow.screen?.visibleFrame ?? NSScreen.main!.visibleFrame
         var frame = mainWindow.frame
-        frame.size.width = min(frame.width >= 840 ? 520 : 1040,screen.width)
+        frame.size.width = min(frame.width >= 840 ? 600 : 1040,screen.width)
         frame.origin.x = min(max(screen.minX,frame.minX),screen.maxX-frame.width)
         mainWindow.setFrame(frame,display:true,animate:true)
     }
+    func fitMainContent(_ height:CGFloat) {
+        guard WindowPresentation.shared.autoFit,height>0,!ControlLock.shared.isLocked,
+              let window=mainWindow,!window.styleMask.contains(.fullScreen),
+              let screen=window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame else {return}
+        let content=height+20+(HintPreferences.shared.enabled ? 54:0)
+        let chrome=max(0,window.frame.height-window.contentLayoutRect.height)
+        let targetHeight=content+chrome+4
+        window.contentMinSize=NSSize(width:min(600,screen.width),height:min(420,screen.height-28))
+        let frame=EmbeddedPlaylistLayout.fittedFrame(current:window.frame,visible:screen,height:targetHeight)
+        if abs(frame.height-window.frame.height)>1 || abs(frame.minY-window.frame.minY)>1 {window.setFrame(frame,display:true)}
+    }
     func ensureEmbeddedPlaylistRoom() {
-        guard !PlaylistWindowState.shared.detached,let window=mainWindow,
+        if WindowPresentation.shared.autoFit {WindowPresentation.shared.requestFit();return}
+        guard !PlaylistWindowState.shared.detached,let window=mainWindow,!window.styleMask.contains(.fullScreen),
               let screen=window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame else {return}
         window.contentMinSize=NSSize(width:min(600,screen.width),height:min(740,max(620,screen.height-28)))
         let frame=EmbeddedPlaylistLayout.frame(current:window.frame,visible:screen,tracks:Player.shared.tracks.count)
         if frame != window.frame {window.setFrame(frame,display:true)}
     }
-    @objc func showMain() { pocketWindow?.orderOut(nil); popover?.performClose(nil); ensureEmbeddedPlaylistRoom(); restore(mainWindow); NSApp.activate(ignoringOtherApps: true) }
+    @objc func showMain() { defer {WindowPresentation.shared.refresh()}; pocketWindow?.orderOut(nil); popover?.performClose(nil); ensureEmbeddedPlaylistRoom(); restore(mainWindow); NSApp.activate(ignoringOtherApps: true) }
     @objc func showMappings() {
         guard !ControlLock.shared.isLocked else { return }
         restore(mappingWindow); NSApp.activate(ignoringOtherApps:true)
@@ -957,9 +975,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if window === miniWindow || window === playlistWindow { DispatchQueue.main.async { PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() } }
         }
     }
-    func showMini() { restore(miniWindow); ControlMappings.shared.refreshStates() }
+    func showMini() { defer {WindowPresentation.shared.refresh()}; restore(miniWindow); ControlMappings.shared.refreshStates() }
     func showPlaylistWindow() { restore(playlistWindow);PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() }
-    @objc func toggleMini() { if miniWindow.isVisible && !miniWindow.isMiniaturized { miniWindow.orderOut(nil); ControlMappings.shared.refreshStates() } else { showMini() } }
+    func toggleNano() {
+        guard !ControlLock.shared.isLocked else {return}
+        if pocketWindow.isVisible && !pocketWindow.isMiniaturized {pocketWindow.orderOut(nil)}else {showPocket()}
+        WindowPresentation.shared.refresh()
+    }
+    func toggleStageFullScreen() {
+        guard !ControlLock.shared.isLocked else {return}
+        showMain();mainWindow.toggleFullScreen(nil)
+    }
+    func windowDidEnterFullScreen(_ notification:Notification) {WindowPresentation.shared.refresh()}
+    func windowDidExitFullScreen(_ notification:Notification) {WindowPresentation.shared.refresh();WindowPresentation.shared.requestFit()}
+    func windowDidBecomeKey(_ notification:Notification) {WindowPresentation.shared.refresh()}
+    @objc func toggleMini() { defer {WindowPresentation.shared.refresh()}; if miniWindow.isVisible && !miniWindow.isMiniaturized { miniWindow.orderOut(nil); ControlMappings.shared.refreshStates() } else { showMini() } }
     func restore(_ window: NSWindow) {
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
@@ -1007,6 +1037,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window);if window === pocketWindow { window.saveFrame(usingName:"HARDPLAY.pocket");updatePocketEdge() } else if window === miniWindow { window.saveFrame(usingName:"HARDPLAY.stage.minimal.mini") } }
     }
     func windowDidResize(_ notification:Notification) {
+        if notification.object as? NSWindow === mainWindow {WindowPresentation.shared.requestFit()}
         if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window);if window === pocketWindow {window.saveFrame(usingName:"HARDPLAY.pocket");updatePocketEdge()} }
     }
     func windowWillResize(_ sender:NSWindow,to frameSize:NSSize)->NSSize {
@@ -1014,21 +1045,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if sender === miniWindow,FloatingPlacement.shared.miniLocked {return sender.frame.size}
         return frameSize
     }
-    func windowDidMiniaturize(_ notification:Notification) { if let w=notification.object as? NSWindow,w === mainWindow || w === miniWindow { showPocket() };PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() }
-    func windowDidDeminiaturize(_ notification:Notification) {PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() }
+    func windowDidMiniaturize(_ notification:Notification) {defer {WindowPresentation.shared.refresh()}; if let w=notification.object as? NSWindow,(w === mainWindow || w === miniWindow),WindowPresentation.shared.nanoOnMinimize { showPocket() };PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() }
+    func windowDidDeminiaturize(_ notification:Notification) {defer {WindowPresentation.shared.refresh()};PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() }
     @objc func lockControls() { ControlLock.shared.lock(); showMain() }
     func updatePocketEdge() {
         let near=pocketWindow.screen.map { pocketWindow.frame.minX < $0.visibleFrame.minX } ?? false
         if FloatingPlacement.shared.pocketNearLeftEdge != near { FloatingPlacement.shared.pocketNearLeftEdge=near }
     }
-    func showPocket() {
+    func showPocket() { defer {WindowPresentation.shared.refresh()};
         // Preserve the user's position, including when the widget is hidden and restored.
         if !NSScreen.screens.contains(where:{$0.visibleFrame.contains(pocketWindow.frame)}),let screen=NSScreen.main { pocketWindow.setFrame(pocketWindow.constrainFrameRect(pocketWindow.frame,to:screen),display:false) }
         updatePocketEdge();pocketWindow.orderFront(nil)
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard !ControlLock.shared.isLocked else { return false }
-        if sender === mainWindow || sender === miniWindow { sender.orderOut(nil);showPocket();return false }
+        if sender === mainWindow || sender === miniWindow { sender.orderOut(nil);if WindowPresentation.shared.nanoOnMinimize {showPocket()};WindowPresentation.shared.refresh();return false }
         return true
     }
     @objc func undoQueueEdit() { Player.shared.undoEdit() }

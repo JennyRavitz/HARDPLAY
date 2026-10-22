@@ -53,3 +53,23 @@ struct HardPlayWordmark:View {
         }.foregroundStyle(tapeInk).padding(.horizontal,10).padding(.vertical,5).background(TapeSurface()).accessibilityLabel("HARDPLAY")
     }
 }
+
+/// A compact stamped equipment badge; the wordmark stays separate from the app icon.
+struct StageShield:Shape {
+    func path(in r:CGRect)->Path {
+        var p=Path();let points:[CGPoint]=[.init(x:0,y:5),.init(x:8,y:0),.init(x:r.width-8,y:0),.init(x:r.width,y:5),.init(x:r.width-3,y:r.height-9),.init(x:r.midX,y:r.height),.init(x:3,y:r.height-9)]
+        p.addLines(points);p.closeSubpath();return p
+    }
+}
+struct HardPlayShieldWordmark:View {
+    @ObservedObject private var appearance=AppearancePreferences.shared
+    var body:some View {
+        Text("HARDPLAY").font(.stage(size:18)).tracking(0.4).foregroundStyle(Color(stageHex:appearance.theme.text))
+            .padding(.bottom,4).frame(width:132,height:42)
+            .background(LinearGradient(colors:[Color(stageHex:"39434E"),Color(stageHex:"161C23")],startPoint:.top,endPoint:.bottom),in:StageShield())
+            .overlay(StageShield().stroke(LinearGradient(colors:[accent.opacity(0.9),.white.opacity(0.18),accent.opacity(0.35)],startPoint:.topLeading,endPoint:.bottomTrailing),lineWidth:1.3))
+            .overlay(alignment:.leading){Circle().fill(.white.opacity(0.35)).frame(width:2,height:2).padding(.leading,5)}
+            .overlay(alignment:.trailing){Circle().fill(.white.opacity(0.35)).frame(width:2,height:2).padding(.trailing,5)}
+            .shadow(color:.black.opacity(0.3),radius:2,y:2).accessibilityLabel("HARDPLAY")
+    }
+}
