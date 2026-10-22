@@ -5,7 +5,7 @@ enum WorkspaceMode:String {case nearby,single}
 enum WorkspaceSection:String,CaseIterable,Identifiable {
     case settings,themes,mappings,backup,viewer,editor
     var id:String {rawValue}
-    var title:String {switch self {case .settings:return "Settings";case .themes:return "Themes";case .mappings:return "MIDI / Keys";case .backup:return "Backup";case .viewer:return "Viewer";case .editor:return "Audio Edit"}}
+    var title:String {switch self {case .settings:return "PATCH";case .themes:return "Themes";case .mappings:return "MIDI / Keys";case .backup:return "Backup";case .viewer:return "Viewer";case .editor:return "Audio Edit"}}
     var icon:String {switch self {case .settings:return "slider.horizontal.3";case .themes:return "paintpalette";case .mappings:return "pianokeys";case .backup:return "network";case .viewer:return "iphone";case .editor:return "scissors"}}
 }
 enum WindowDestination:String,CaseIterable,Identifiable {

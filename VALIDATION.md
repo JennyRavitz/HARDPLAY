@@ -225,3 +225,10 @@ GUI additionally verified migration of an already-open separate Settings panel i
 Build/self/queue/style, isolated workspace/quick-button/circular-gesture, mapping and button-mode checks pass. The workspace check covers destination persistence/unknown fallback, quick action assignment and mode validity, the four-button limit, protected mutations, circle direction/backtracking/invalid jumps and a three-second hold threshold. Circular pointer movement is checked by the shared geometry model; an actual circular mouse drag has not been automated.
 
 Native GUI verified the clockwise ring and hints, refusal to unlock after a one-second Space hold, successful unlock after a 3.2-second hold, absence of Main/Mini header wordmarks, expanded window preferences, Ask Each Time dialog, opening Themes inside the player while global workspace remained Nearby, creation of a Control Hints quick button, two-click Toggle operation and its context menu/removal. Temporary theme destination and quick button were restored/removed after the test. User audio was left paused at its saved position after the authorized restart. No physical MIDI or multi-display validation is implied.
+
+
+## 0.23.1 PATCH rear panel
+
+Build/self/queue/style, workspace/quick-action/circular-unlock, mapping and button-mode checks pass. The blanket lock on the playback layout was replaced with explicit locks on decks, seek, transport, volume, transition controls and playlist, leaving the PATCH edge and corner entry available. The large automatic unlock panel was removed; the circular unlock view is now in PATCH.
+
+Native GUI verified the two-row Main toolbar, the corner PATCH button, PATCH open/close state, Controls Available status, Lock Controls / Lock Setup / Open PATCH Settings entries, and the full Hard Play PATCH settings window. Screenshot: local build/HARDPLAY-0.23.1-patch.png (not exported). A timed physical edge hold and the Mini layout were not fully GUI-validated in this pass: input was interrupted by window changes, then the computer-use service reported no available windows. Source and existing protection tests pass; no claim of complete gesture/hardware validation.

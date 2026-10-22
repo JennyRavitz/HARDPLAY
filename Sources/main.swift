@@ -668,6 +668,7 @@ var accent: Color { Color(stageHex:AppearancePreferences.shared.theme.accent) }
 func timeLabel(_ seconds: Double) -> String { let n = Int(max(0, seconds.isFinite ? seconds : 0)); return String(format: "%d:%02d", n / 60, n % 60) }
 
 final class PlayerViewState: ObservableObject {
+    @Published var patchOpen=false
     @Published var queueContentHeight:CGFloat=0
     @Published var search = ""
     @Published var targeted = false
@@ -813,7 +814,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let open = appMenu.addItem(withTitle:"Open Playlist…",action:#selector(openPlaylist),keyEquivalent:"o"); open.keyEquivalentModifierMask = [.command,.shift]
         appMenu.addItem(withTitle:"Undo Playlist Edit",action:#selector(undoQueueEdit),keyEquivalent:"z")
         let redo=appMenu.addItem(withTitle:"Redo Playlist Edit",action:#selector(redoQueueEdit),keyEquivalent:"z");redo.keyEquivalentModifierMask=[.command,.shift]
-        appMenu.addItem(withTitle:"Settings…",action:#selector(showSettingsWindow),keyEquivalent:",")
+        appMenu.addItem(withTitle:"PATCH…",action:#selector(showSettingsWindow),keyEquivalent:",")
         appMenu.addItem(withTitle:"Timecode & Backup…",action:#selector(showBackupWindow),keyEquivalent:"")
         appMenu.addItem(withTitle:"Web Viewer…",action:#selector(showWebViewer),keyEquivalent:"")
         appMenu.addItem(withTitle: "Show Hard Play", action: #selector(showMain), keyEquivalent: "1")
@@ -875,7 +876,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         pocketWindow.minSize=NSSize(width:344,height:320);pocketWindow.maxSize=NSSize(width:560,height:640)
         let restored=pocketWindow.frame;let limited=PocketPanel.limitedSize(restored.size)
         pocketWindow.setContentSize(limited)
-        settingsWindow = utilityWindow(title:"Hard Play Settings",width:370,height:500)
+        settingsWindow = utilityWindow(title:"Hard Play PATCH",width:370,height:500)
         settingsWindow.contentView = NSHostingView(rootView:PlayerView(settingsOnly:true).padding(20).background(ThemedBackdrop()).preferredColorScheme(.dark).font(.stage(.body)))
         themesWindow = utilityWindow(title:"Hard Play Themes",width:410,height:760)
         themesWindow.contentView = NSHostingView(rootView:ThemeEditorView().background(ThemedBackdrop()).preferredColorScheme(.dark).font(.stage(.body)))
