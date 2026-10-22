@@ -73,3 +73,23 @@ struct HardPlayShieldWordmark:View {
             .shadow(color:.black.opacity(0.3),radius:2,y:2).accessibilityLabel("HARDPLAY")
     }
 }
+
+/// Compact marker label: one bundled 75 KB font, no image or animation.
+enum CrewMarker {
+    static let name:String = {
+        guard let url=Bundle.main.url(forResource:"PermanentMarker-Regular",withExtension:"ttf") else {return StageTypography.name}
+        CTFontManagerRegisterFontsForURL(url as CFURL,.process,nil)
+        return "PermanentMarker-Regular"
+    }()
+}
+struct MiniStageLabel:View {
+    var body:some View {
+        HStack(spacing:8) {
+            MarkerIcon(systemName:"player.mini",size:19)
+            VStack(alignment:.leading,spacing:-3) {
+                Text("mini").font(.custom(CrewMarker.name,size:11))
+                Text("hardplay").font(.custom(CrewMarker.name,size:18))
+            }
+        }.foregroundStyle(tapeInk).padding(.horizontal,10).frame(height:40).background(TapeSurface())
+    }
+}

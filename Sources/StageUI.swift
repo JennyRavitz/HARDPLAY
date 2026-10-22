@@ -418,6 +418,9 @@ struct PlayerView: View {
             }
             Divider()
         }
+        Button("New Playlist…") {ui.playlist=false;player.requestNewPlaylist()}.disabled(setup.editsBlocked)
+        Button("Delete Playlist…",role:.destructive) {ui.playlist=false;player.requestDeletePlaylist()}.disabled(setup.editsBlocked || !player.canDeletePlaylist)
+        Divider()
         Button("Save Playlist") { ui.playlist = false; player.savePlaylist() }
         Button("Save Playlist As…") { ui.playlist = false; player.savePlaylist(asNew:true) }
         Button("Open Playlist…") { ui.playlist = false; player.openPlaylist() }.disabled(setup.editsBlocked)
@@ -520,7 +523,9 @@ struct PlayerView: View {
         VStack(spacing:12) {
             HStack(spacing:12) {
                 if !compact {
-                    toolbarButton("Mini Player","player.mini",active:windows.mini) {AppDelegate.shared.toggleMini()}.disabled(lock.isLocked)
+                    Button {AppDelegate.shared.toggleMini()} label:{MiniStageLabel()}
+                        .buttonStyle(PlayerControlStyle(active:windows.mini)).accessibilityLabel("Mini Hardplay").accessibilityValue(windows.mini ? "Open":"Hidden")
+                        .stageHint("mini hardplay · open or hide the floating player").mapAction("mini").disabled(lock.isLocked)
                     toolbarButton("Nano Player","player.nano",active:windows.nano) {AppDelegate.shared.toggleNano()}.disabled(lock.isLocked)
                     toolbarButton(windows.fullScreen ? "Exit Full Screen":"Full Screen Player",windows.fullScreen ? "player.exitfullscreen":"player.fullscreen",active:windows.fullScreen) {AppDelegate.shared.toggleStageFullScreen()}.disabled(lock.isLocked)
                 }else {
@@ -550,6 +555,13 @@ struct PlayerView: View {
                     if menuBar {AppDelegate.shared.detachMiniFromMenuBar()}else {AppDelegate.shared.attachMiniToMenuBar(hideMain:!compact)}
                 }
             }.disabled(lock.isLocked)
+            if ["FOH","Stage Crew","Stagehand"].contains(appearance.theme.preset) {
+                HStack {
+                    Text(appearance.theme.preset == "FOH" ? "FOH / PLAYBACK":"STAGE CREW / AUDIO").font(.system(size:9,weight:.semibold,design:.monospaced)).tracking(1.4)
+                    Spacer()
+                    Text("HP—01  /  PATCH →").font(.system(size:9,weight:.medium,design:.monospaced))
+                }.foregroundStyle(accent.opacity(0.55)).accessibilityHidden(true)
+            }
         }
     }
     private var transport: some View {

@@ -6,7 +6,7 @@ Hard Play is a stage audio player for macOS, with an installable offline web edi
 
 ## Download and install on Mac
 
-Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.23.1). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
+Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.24.0). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
 - **macOS 14 Sonoma or newer.** Packaged builds are for **Apple Silicon (arm64)**. Intel Macs can build the source locally; these packages are not universal binaries.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.
@@ -36,6 +36,8 @@ PATCH contains **Lock Controls**, the circular unlock ring, **Lock Setup**, Mini
 - The changing **window icon** embeds or separates the playlist in one click. Docking remains available. Both views use the same queue.
 - Selecting a title only selects it. Use the row’s **▶** to play. Right-click → **Duplicate Track** creates an independent queue occurrence.
 - Inline rename, per-track transitions, global **ALL 0 / 3s / 6s**, auto-stop, restart/resume, volume, shuffle and repeat.
+- **New Playlist… / Delete Playlist…** are in Playlist Files, the set-name right-click menu, and the app menu. New creates a named empty set; delete moves the saved document to Trash, or clears an unsaved set. Audio stays untouched. Undo restores the previous queue; after deleting, it restores an unsaved set. Recover the original document from Trash. **⌘N** creates a set.
+- **mini hardplay** is a marker-on-tape button for the floating player. **PATCH → Themes** adds **FOH**, **Stage Crew** and **Stagehand**, using static vector casework and muted tape without added texture images.
 - Save/open playlists; native `.hardplay` and web `.hardplay.json` store metadata, not audio. Web additionally supports individual play-time caps and total set timing.
 - **Workspace Mode** switches between nearby separate utility windows and one tabbed window containing Settings, Themes, MIDI/Keys, Backup, Viewer and Audio Edit. The tabbed workspace keeps transport controls visible. Nearby panels are arranged relative to the main window, using a cascade when the display has insufficient free space.
 - **Settings → Window opening preferences** chooses Inside Player, Nearby, Independent, Ask Each Time, or Workspace Default separately for each utility panel. Right-click a panel button for a one-time destination. Nearby panels follow the main window; independent panels keep their own position.

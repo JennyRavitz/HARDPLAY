@@ -13,13 +13,16 @@ struct StageTheme: Codable {
     var spacing = 14.0
     var radius = 12.0
     var texture = true
-    static let names = ["Tape Blue", "Tape White", "Tape Black", "Speaker Grille", "Road Case", "Stage", "Flightcase", "Cables", "Cinema", "Theatre", "Minimal"]
+    static let names = ["Tape Blue", "Tape White", "Tape Black", "FOH", "Stage Crew", "Stagehand", "Speaker Grille", "Road Case", "Stage", "Flightcase", "Cables", "Cinema", "Theatre", "Minimal"]
     static func named(_ name: String) -> StageTheme {
         var t = StageTheme(); t.preset = name
         switch name {
         case "Tape Blue": t.tape="ADC9E4";t.accent="ADC9E4";t.radius=6
         case "Tape White": t.tape="E9E5D9";t.accent="E9E5D9";t.radius=6
         case "Tape Black": t.tape="15181D";t.accent="C5D2E2";t.radius=6
+        case "FOH": t.background="141A21";t.accent="A8CADF";t.tape="B9D3DF";t.radius=5;t.opacity=0.96;t.spacing=16
+        case "Stage Crew": t.background="202124";t.accent="D9C69B";t.tape="DACAA6";t.radius=5;t.opacity=0.96;t.spacing=16
+        case "Stagehand": t.background="1A1D26";t.accent="B8BCD9";t.tape="E2E0D7";t.radius=6;t.opacity=0.96;t.spacing=16
         case "Speaker Grille": t.background="171D24";t.accent="9EBED6";t.tape="B7CAD4";t.radius=5;t.opacity=0.97;t.spacing=12
         case "Road Case": t.background="20252B";t.accent="BFCCD9";t.tape="D7C79E";t.radius=4;t.opacity=0.96;t.spacing=12
         case "Stage": t.background="27374B";t.tape="C8C8FB"
@@ -68,6 +71,23 @@ struct ThemedBackdrop: View {
                     Canvas { ctx,size in
                         let color = Color(stageHex:t.accent).opacity(0.055)
                         switch t.preset {
+                        case "FOH", "Stage Crew", "Stagehand":
+                            // Sparse tolex lines and case hardware; static paths, no texture images.
+                            var grain=Path()
+                            for y in stride(from:16.0,to:size.height,by:36) {grain.move(to:.init(x:12,y:y));grain.addLine(to:.init(x:size.width-12,y:y+8))}
+                            ctx.stroke(grain,with:.color(.white.opacity(0.025)),lineWidth:0.5)
+                            let shell=CGRect(x:5,y:5,width:max(0,size.width-10),height:max(0,size.height-10))
+                            ctx.stroke(Path(roundedRect:shell,cornerRadius:12),with:.color(Color(stageHex:"76818A").opacity(0.48)),lineWidth:5)
+                            ctx.stroke(Path(roundedRect:shell.insetBy(dx:3,dy:3),cornerRadius:10),with:.color(.black.opacity(0.8)),lineWidth:1)
+                            for x in [10.0,size.width-10] {for y in [10.0,size.height-10] {
+                                let plate=CGRect(x:x-6,y:y-6,width:12,height:12)
+                                ctx.fill(Path(roundedRect:plate,cornerRadius:3),with:.color(Color(stageHex:"8C959B").opacity(0.65)))
+                                ctx.fill(Path(ellipseIn:plate.insetBy(dx:4,dy:4)),with:.color(.black.opacity(0.6)))
+                            }}
+                            // A small inventory barcode, decorative only, outside the controls.
+                            for i in 0..<16 {
+                                ctx.fill(Path(CGRect(x:size.width-70+Double(i)*3,y:size.height-12,width:i%3==0 ? 2:1,height:5)),with:.color(.white.opacity(0.16)))
+                            }
                         case "Speaker Grille":
                             for row in 0...Int(size.height/9) {
                                 for x in stride(from:row%2 == 0 ? 3.0:7.5,to:size.width,by:9) {
@@ -113,7 +133,7 @@ struct ThemeEditorView: View {
         ScrollView {
             VStack(alignment:.leading,spacing:16) {
                 Text("Themes & Appearance").font(.stage(.title2).bold())
-                Text("Marker lettering · refined tape · speaker grille and road-case hardware. Live preview stays in the player.").font(.stage(.callout)).foregroundStyle(.secondary)
+                Text("Touring cases · FOH markings · crew tape · clear marker lettering. Live preview stays in the player.").font(.stage(.callout)).foregroundStyle(.secondary)
                 HStack {HardPlayShieldWordmark();Spacer();HardPlayWordmark(layout:.stacked)}
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:8) {
                     ForEach(StageTheme.names,id:\.self) { name in

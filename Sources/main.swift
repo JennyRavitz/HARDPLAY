@@ -142,13 +142,13 @@ final class Player: ObservableObject {
         }
     }
     private struct QueueEdit {
-        var tracks:[Track];var modes:[String:FadeMode];var positions:[String:Double];var bookmarks:[String:Data];var selected:String?;var name:String
+        var tracks:[Track];var modes:[String:FadeMode];var positions:[String:Double];var bookmarks:[String:Data];var selected:String?;var name:String;var url:URL?
     }
     private var pastEdits:[QueueEdit] = []
     private var futureEdits:[QueueEdit] = []
     var canUndoEdit:Bool { !pastEdits.isEmpty }
     var canRedoEdit:Bool { !futureEdits.isEmpty }
-    private func editSnapshot()->QueueEdit { QueueEdit(tracks:tracks,modes:transitionModes,positions:positions,bookmarks:bookmarks,selected:selectedID,name:playlistName) }
+    private func editSnapshot()->QueueEdit { QueueEdit(tracks:tracks,modes:transitionModes,positions:positions,bookmarks:bookmarks,selected:selectedID,name:playlistName,url:playlistURL) }
     private func recordEdit() { pastEdits.append(editSnapshot());if pastEdits.count>30 { pastEdits.removeFirst() };futureEdits=[];objectWillChange.send() }
     func undoEdit() {
         guard !setupLock.editsBlocked,!ControlLock.shared.isLocked,let edit=pastEdits.popLast() else { return }
@@ -161,7 +161,7 @@ final class Player: ObservableObject {
     private func restoreEdit(_ edit:QueueEdit) {
         cancelCrossfade()
         if !edit.tracks.contains(where:{$0.id == currentID}) || edit.tracks.first(where:{$0.id == currentID})?.url != current?.url { pause();loadingTask?.cancel();engine.replaceCurrentItem(with:nil);currentID=nil;elapsed=0;duration=0 }
-        playlistName=edit.name;tracks=edit.tracks;transitionModes=edit.modes;positions.merge(edit.positions) { current,_ in current };bookmarks=edit.bookmarks;selectedID=edit.selected
+        playlistURL=edit.url.flatMap {FileManager.default.fileExists(atPath:$0.path) ? $0:nil};playlistName=edit.name;tracks=edit.tracks;transitionModes=edit.modes;positions.merge(edit.positions) { current,_ in current };bookmarks=edit.bookmarks;selectedID=edit.selected
         if current == nil,let first=selectedTrack ?? tracks.first { load(first,autoplay:false,position:positions[first.id] ?? 0) }
         persist();nowPlaying();objectWillChange.send()
     }
@@ -445,6 +445,44 @@ final class Player: ObservableObject {
         if missing > 0 { error = "\(missing) audio file(s) are missing. Their positions in the playlist have been kept." }
         persist()
     }
+    var canDeletePlaylist:Bool {playlistURL != nil || !tracks.isEmpty || playlistName != "My Set"}
+    func newPlaylist(named name:String = "My Set") {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked else {return}
+        rememberPosition();recordEdit();pause();loadingTask?.cancel();failureObservation=nil;cancelCrossfade();clearEndBoundary()
+        engine.replaceCurrentItem(with:nil);isLoading=false;restoredTime=0;stoppedAtBoundary=false
+        let clean=String(name.replacingOccurrences(of:"\n",with:" ").replacingOccurrences(of:"\r",with:" ").trimmingCharacters(in:.whitespacesAndNewlines).prefix(100))
+        playlistURL=nil;playlistName=clean.isEmpty ? "My Set":clean
+        tracks=[];selectedID=nil;currentID=nil;elapsed=0;duration=0
+        waveformCues.removeAll();positions.removeAll();bookmarks.removeAll();transitionModes.removeAll();error=nil
+        persist();nowPlaying()
+    }
+    /// Only the playlist document is trashed. Undo restores its queue as an unsaved set.
+    func deletePlaylist(using trash:(URL)throws->Void = {try FileManager.default.trashItem(at:$0,resultingItemURL:nil)}) throws {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked else {return}
+        if let url=playlistURL {
+            try trash(url) // failure leaves the queue and document binding intact
+            recentPlaylists.removeAll {$0.standardizedFileURL == url.standardizedFileURL}
+            playlistURL=nil
+        }
+        newPlaylist()
+    }
+    func requestNewPlaylist() {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked else {return}
+        let alert=NSAlert();alert.messageText="New Playlist"
+        alert.informativeText=tracks.isEmpty ? "Name your new set.":"Creates an empty set and stops playback. Undo restores the current queue. Saved playlists stay on disk."
+        let name=NSTextField(string:"My Set");name.frame=NSRect(x:0,y:0,width:280,height:28);name.placeholderString="Set name";alert.accessoryView=name
+        alert.addButton(withTitle:"Create");alert.addButton(withTitle:"Cancel");alert.window.initialFirstResponder=name
+        if alert.runModal() == .alertFirstButtonReturn {newPlaylist(named:name.stringValue)}
+    }
+    func requestDeletePlaylist() {
+        guard !setupLock.editsBlocked,!ControlLock.shared.isLocked else {return}
+        let saved=playlistURL != nil,alert=NSAlert();alert.messageText="Delete “\(playlistName)”?"
+        alert.informativeText=saved ? "Moves this playlist document to Trash and clears the queue. Audio files stay where they are. Undo restores the queue as an unsaved set.":"Clears this unsaved playlist. Audio files stay where they are. Undo restores the queue."
+        alert.addButton(withTitle:saved ? "Move Playlist to Trash":"Delete Playlist");alert.addButton(withTitle:"Cancel")
+        if alert.runModal() == .alertFirstButtonReturn {
+            do {try deletePlaylist()}catch {self.error="Could not delete playlist: \(error.localizedDescription)"}
+        }
+    }
     func savePlaylist(asNew: Bool = false) {
         guard !ControlLock.shared.isLocked else { return }
         if !asNew, let playlistURL {
@@ -710,7 +748,7 @@ struct PlayerControlStyle: ButtonStyle {
     var primary = false
     @Environment(\.isEnabled) private var enabled
     private var surface:ControlOutline {
-        if case .rounded=outline,["Road Case","Flightcase","Speaker Grille"].contains(appearance.theme.preset) {return .hardware}
+        if case .rounded=outline,["Road Case","Flightcase","Speaker Grille","FOH","Stage Crew","Stagehand"].contains(appearance.theme.preset) {return .hardware}
         return outline
     }
     func makeBody(configuration: Configuration) -> some View {
@@ -809,6 +847,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let appItem = NSMenuItem(); menu.addItem(appItem)
         let appMenu = NSMenu(); appItem.submenu = appMenu
         appMenu.addItem(withTitle: "Add Audio…", action: #selector(addFiles), keyEquivalent: "o")
+        appMenu.addItem(withTitle:"New Playlist…",action:#selector(newPlaylist),keyEquivalent:"n")
+        appMenu.addItem(withTitle:"Delete Playlist…",action:#selector(deletePlaylist),keyEquivalent:"")
         appMenu.addItem(withTitle: "Save Playlist",action:#selector(savePlaylist),keyEquivalent:"s")
         let saveAs = appMenu.addItem(withTitle:"Save Playlist As…",action:#selector(savePlaylistAs),keyEquivalent:"s"); saveAs.keyEquivalentModifierMask = [.command,.shift]
         let open = appMenu.addItem(withTitle:"Open Playlist…",action:#selector(openPlaylist),keyEquivalent:"o"); open.keyEquivalentModifierMask = [.command,.shift]
@@ -1140,6 +1180,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     @objc func undoQueueEdit() { Player.shared.undoEdit() }
     @objc func redoQueueEdit() { Player.shared.redoEdit() }
+    @objc func newPlaylist() {Player.shared.requestNewPlaylist()}
+    @objc func deletePlaylist() {Player.shared.requestDeletePlaylist()}
     @objc func savePlaylist() { Player.shared.savePlaylist() }
     @objc func savePlaylistAs() { Player.shared.savePlaylist(asNew:true) }
     @objc func openPlaylist() { Player.shared.openPlaylist() }
@@ -1177,9 +1219,10 @@ _ = StageTypography.name
 if CommandLine.arguments.contains("--style-check") {
     precondition(StageTypography.name.lowercased().contains("balsamiq"))
     precondition(NSFont(name:StageTypography.name,size:14) != nil)
+    precondition(NSFont(name:CrewMarker.name,size:18) != nil && CrewMarker.name.contains("PermanentMarker"))
     precondition(HardPlayBrand.artwork != nil)
-    for name in ["Tape Blue","Tape White","Tape Black"] {let theme=StageTheme.named(name);precondition(theme.preset == name && theme.texture)}
-    print("PASS: bundled marker font registered as \(StageTypography.name), approved beam artwork and all three tape presets available")
+    for name in ["Tape Blue","Tape White","Tape Black","FOH","Stage Crew","Stagehand"] {let theme=StageTheme.named(name);precondition(theme.preset == name && theme.texture)}
+    print("PASS: bundled marker font registered as \(StageTypography.name), dedicated mini marker font, approved beam artwork and tape/crew presets available")
 } else if CommandLine.arguments.contains("--waveform-test") {
     Task { @MainActor in do {try await runWaveformTests();exit(0)}catch {print("FAIL: \(error.localizedDescription)");exit(1)} };RunLoop.main.run()
 } else if CommandLine.arguments.contains("--viewer-test") {
@@ -1346,6 +1389,32 @@ if CommandLine.arguments.contains("--style-check") {
     controls.mapping = false; ControlLock.shared.lock(); controls.trigger(play); precondition(fired.count == 7); _ = ControlLock.shared.unlock(heldFor:3)
     isolated.removePersistentDomain(forName:suite)
     print("PASS: MIDI learn, note/CC edges, running status, source isolation, shortcut conflict replacement, persistence, set validation and lock/map suppression")
+} else if CommandLine.arguments.contains("--playlist-lifecycle-test") {
+    let suite="local.hardplay.lifecycle.\(UUID().uuidString)"
+    let isolated=UserDefaults(suiteName:suite)!,directory=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
+    defer {try? FileManager.default.removeItem(at:directory);isolated.removePersistentDomain(forName:suite)}
+    let protection=SetupLock(defaults:isolated),player=Player(defaults:isolated,remoteCommands:false,setupLock:protection)
+    let audio=directory.appendingPathComponent("source.wav"),document=directory.appendingPathComponent("first.hardplay"),trashed=directory.appendingPathComponent("trashed.hardplay")
+    let bytes=Data("fixture source remains untouched".utf8);try bytes.write(to:audio)
+    player.add([audio]);player.renameSet(to:"First");player.setFadeMode(.long,after:player.tracks[0]);try player.writePlaylist(to:document)
+    let ids=player.tracks.map(\.id),original=try Data(contentsOf:document)
+    player.newPlaylist(named:"  Second\nSet  ")
+    precondition(player.tracks.isEmpty && player.playlistURL==nil && player.playlistName=="Second Set" && !player.playing && player.canDeletePlaylist)
+    let unchanged=try Data(contentsOf:document);precondition(unchanged==original)
+    player.undoEdit();precondition(player.tracks.map(\.id)==ids && player.playlistURL==document && player.playlistName=="First" && player.fadeMode(after:player.tracks[0]) == .long)
+    protection.lock();player.newPlaylist();try player.deletePlaylist { _ in fatalError("Locked delete reached filesystem") };precondition(player.tracks.map(\.id)==ids)
+    protection.unlock()
+    do {try player.deletePlaylist {_ in throw CocoaError(.fileWriteNoPermission)};fatalError("Deletion failure hidden")}catch {}
+    precondition(player.playlistURL==document && player.tracks.map(\.id)==ids)
+    try player.deletePlaylist {try FileManager.default.moveItem(at:$0,to:trashed)}
+    precondition(player.tracks.isEmpty && player.playlistURL==nil && !player.recentPlaylists.contains(document))
+    precondition(FileManager.default.fileExists(atPath:trashed.path))
+    player.undoEdit();precondition(player.tracks.map(\.id)==ids && player.playlistURL==nil && player.playlistName=="First")
+    let audioAfter=try Data(contentsOf:audio);precondition(audioAfter==bytes)
+    player.redoEdit();precondition(player.tracks.isEmpty)
+    player.newPlaylist(named:" ");precondition(player.playlistName=="My Set" && !player.canDeletePlaylist)
+    print("PASS: new named playlist, source-document preservation, Undo binding/fades, protected lifecycle, failed trash atomicity, delete recents, audio untouched and deleted-file Undo as unsaved")
 } else if CommandLine.arguments.contains("--playlist-test") {
     let directory = URL(fileURLWithPath:NSTemporaryDirectory()).appendingPathComponent("hardplay-playlist-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)

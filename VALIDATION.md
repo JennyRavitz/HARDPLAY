@@ -232,3 +232,12 @@ Native GUI verified the clockwise ring and hints, refusal to unlock after a one-
 Build/self/queue/style, workspace/quick-action/circular-unlock, mapping and button-mode checks pass. The blanket lock on the playback layout was replaced with explicit locks on decks, seek, transport, volume, transition controls and playlist, leaving the PATCH edge and corner entry available. The large automatic unlock panel was removed; the circular unlock view is now in PATCH.
 
 Native GUI verified the two-row Main toolbar, the corner PATCH button, PATCH open/close state, Controls Available status, Lock Controls / Lock Setup / Open PATCH Settings entries, and the full Hard Play PATCH settings window. Screenshot: local build/HARDPLAY-0.23.1-patch.png (not exported). A timed physical edge hold and the Mini layout were not fully GUI-validated in this pass: input was interrupted by window changes, then the computer-use service reported no available windows. Source and existing protection tests pass; no claim of complete gesture/hardware validation.
+
+
+## 0.24.0 crew sets
+
+Build/self/queue/style, playlist lifecycle and playlist round-trip checks pass. Lifecycle checks use isolated defaults and a temporary directory: named/empty creation, prior saved-file bytes unchanged, Undo restoring document binding and fades, protection guards, deletion failure leaving the set intact, simulated trash move of the document only, recent-list cleanup, audio bytes unchanged and Undo after deletion restoring an unsaved queue. OS Trash integration uses FileManager.trashItem; the lifecycle test injects a temporary move instead of touching the user's Trash.
+
+Native GUI verified New Playlist through Command-N, creating FOH Test Set, and Undo restoring the user's previous name/empty queue. The FOH, Stage Crew and Stagehand presets are present in Themes. FOH was applied and visually inspected in Main: marker mini hardplay button, spaced controls, touring case rim/corner hardware and quiet FOH/PLAYBACK labelling. FOH is left active; playback is stopped. Local screenshot build/HARDPLAY-0.24-foh.png is excluded from the public source export.
+
+No new raster artwork or animated backgrounds are added. The existing licensed Permanent Marker font is now bundled for the dedicated Mini label (74,632 uncompressed bytes); other UI text keeps Balsamiq for readability. The other two crew palettes have not received full physical-display inspection.

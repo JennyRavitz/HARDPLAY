@@ -17,8 +17,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>local.hardplay.player</string>
 <key>CFBundleName</key><string>Hard Play</string>
 <key>CFBundleDisplayName</key><string>Hard Play</string>
-<key>CFBundleVersion</key><string>32</string>
-<key>CFBundleShortVersionString</key><string>0.23.1</string>
+<key>CFBundleVersion</key><string>33</string>
+<key>CFBundleShortVersionString</key><string>0.24.0</string>
 <key>CFBundleDevelopmentRegion</key><string>en</string>
 <key>CFBundleLocalizations</key><array><string>en</string></array>
 <key>UTExportedTypeDeclarations</key><array><dict><key>UTTypeIdentifier</key><string>local.hardplay.playlist</string><key>UTTypeDescription</key><string>HARDPLAY Playlist</string><key>UTTypeConformsTo</key><array><string>public.json</string></array><key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>hardplay</string></array><key>public.mime-type</key><string>application/vnd.hardplay.playlist+json</string></dict></dict></array>
@@ -34,7 +34,9 @@ PLIST
 cp assets/branding/hardplay-beams-icon-v1.png "$APP/Contents/Resources/HardPlayBeams.png"
 cp assets/fonts/BalsamiqSans-Bold.ttf "$APP/Contents/Resources/"
 cp assets/fonts/BalsamiqSans-OFL.txt "$APP/Contents/Resources/"
-rm -f "$APP/Contents/Resources/PermanentMarker-Regular.ttf" "$APP/Contents/Resources/PermanentMarker-LICENSE.txt" "$APP/Contents/Resources/RedKeycap.png" "$APP/Contents/Resources/HardPlayButton.png"
+cp assets/fonts/PermanentMarker-Regular.ttf "$APP/Contents/Resources/"
+cp assets/fonts/PermanentMarker-LICENSE.txt "$APP/Contents/Resources/"
+rm -f "$APP/Contents/Resources/RedKeycap.png" "$APP/Contents/Resources/HardPlayButton.png"
 sips -z 1024 1024 assets/branding/hardplay-beams-icon-v1.png --out "$PWD/build/icon.png" >/dev/null
 mkdir -p "$PWD/build/AppIcon.iconset"
 for size in 16 32 128 256 512; do

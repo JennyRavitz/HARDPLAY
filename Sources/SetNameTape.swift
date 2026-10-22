@@ -26,7 +26,11 @@ struct SetNameTape:View {
                 HStack(spacing:5) {Text(player.playlistName).lineLimit(1);if onOpen != nil {MarkerIcon(systemName:"chevron.down").font(.stage(size:9,weight:.bold))}}
                     .frame(maxWidth:.infinity,alignment:.leading)
                     .gesture(TapGesture(count:2).onEnded {begin()}.exclusively(before:TapGesture().onEnded {onOpen?()}))
-                    .contextMenu {Button("Rename Set"){begin()}.disabled(setup.editsBlocked || lock.isLocked)}
+                    .contextMenu {
+                        Button("Rename Set"){begin()}.disabled(setup.editsBlocked || lock.isLocked)
+                        Button("New Playlist…"){player.requestNewPlaylist()}.disabled(setup.editsBlocked || lock.isLocked)
+                        Button("Delete Playlist…",role:.destructive){player.requestDeletePlaylist()}.disabled(!player.canDeletePlaylist || setup.editsBlocked || lock.isLocked)
+                    }
                     .accessibilityLabel("Playlist: \(player.playlistName)").accessibilityAddTraits(.isButton)
                     .accessibilityAction {onOpen?()}.accessibilityAction(named:Text("Rename Set")){begin()}
             }
