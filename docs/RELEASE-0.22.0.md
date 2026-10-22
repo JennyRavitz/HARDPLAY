@@ -1,5 +1,8 @@
 # Hard Play 0.22.0 — Window Controls Preview
 
+- Raised hardware-style buttons and transport, with bevels, light/shadow and press depth. Hint text is enlarged from 11 to 16.5 points with room for three lines.
+- Workspace Mode toggles nearby separate panels and one tabbed main window (Settings, Themes, MIDI/Keys, Backup, Viewer, Audio Edit). A compact transport remains visible in tabs. Editor preparation is idempotent so changing tabs preserves the working selection.
+- Nearby panel placement uses available space around the main window and follows its moves; crowded displays use an accessible cascade.
 - Dedicated hand-drawn Mini, Nano and Full Screen buttons in the main header. Highlighting follows actual window visibility; repeated clicks hide Mini/Nano or leave full screen.
 - Auto Fit switch follows measured player/playlist content, removes spare space and preserves the top edge and width. Long queues scroll and the window stays within the visible display; manual sizing remains available with the mode off.
 - Separate Auto Nano switch in the header and Settings: choose whether minimizing/closing a player opens the desktop companion above ordinary windows. Manual Nano remains available with this mode off.

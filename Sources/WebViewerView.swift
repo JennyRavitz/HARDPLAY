@@ -3,6 +3,7 @@ import AppKit
 import CoreImage.CIFilterBuiltins
 
 struct WebViewerView:View {
+    var embedded=false
     @ObservedObject private var viewer=WebViewer.shared
     @ObservedObject private var setup=SetupLock.shared
     @ObservedObject private var lock=ControlLock.shared
@@ -24,7 +25,7 @@ struct WebViewerView:View {
             Text("Current track · time remaining · next track · queue · crossfade status").font(.stage(.callout))
             Text("View only. Audio stays on this Mac. Anyone with this session link can view the set while sharing is on. Stop Sharing revokes the link; each new session creates a new link.").font(.stage(.caption)).foregroundStyle(.secondary)
             Text("Local HTTP connection: use a trusted Wi-Fi or Ethernet network. This is not internet or cloud sharing. Keep HARDPLAY and the Mac awake during the show.").font(.stage(.caption)).foregroundStyle(.secondary)
-        }.padding(22)}.frame(minWidth:380,minHeight:500)
+        }.padding(22)}.frame(minWidth:380,minHeight:embedded ? 300:500)
     }
     private func qr(_ text:String)->NSImage? {let filter=CIFilter.qrCodeGenerator();filter.message=Data(text.utf8);guard let output=filter.outputImage,let image=CIContext().createCGImage(output,from:output.extent) else {return nil};return NSImage(cgImage:image,size:NSSize(width:image.width,height:image.height))}
 }

@@ -30,6 +30,7 @@ final class PlaylistWindowState: ObservableObject {
     }
     func dock(_ side:PlaylistDockEdge,fromMini:Bool=false) {
         guard !ControlLock.shared.isLocked else { return }
+        if WorkspaceState.shared.mode == .single {WorkspaceState.shared.toggle()}
         releaseParent();self.fromMini=fromMini;edge=side;detached=true;save()
         let app=AppDelegate.shared!,owner=fromMini ? app.miniWindow!:app.mainWindow!
         app.restore(owner)

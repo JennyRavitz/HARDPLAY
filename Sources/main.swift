@@ -695,7 +695,7 @@ enum ControlOutline: Shape {
     func path(in rect: CGRect) -> Path {
         switch self {
         case .circle: return Circle().path(in: rect)
-        case .rounded: return TapeEdge().path(in:rect)
+        case .rounded: return RoundedRectangle(cornerRadius:6).path(in:rect)
         case .capsule: return Capsule().path(in: rect)
         case .hardware:return RoundedRectangle(cornerRadius:4).path(in:rect)
         }
@@ -713,15 +713,19 @@ struct PlayerControlStyle: ButtonStyle {
         return outline
     }
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(primary ? Color(stageHex:AppearancePreferences.shared.theme.text) : (active ? tapeInk : Color(stageHex:AppearancePreferences.shared.theme.text).opacity(0.95)))
-            .background(primary ? accent.opacity(configuration.isPressed ? 0.65 : 0.3) : (active ? tapeB.opacity(configuration.isPressed ? 0.8:1) : Color.black.opacity(configuration.isPressed ? 0.35 : 0.22)), in: surface)
-            .overlay(TapeGrain().clipShape(surface))
-            .overlay(surface.stroke(primary ? accent.opacity(0.85) : (active ? accent.opacity(0.7) : Color.white.opacity(0.15)), lineWidth: 1))
-            .contentShape(surface)
-            .opacity(enabled ? 1 : 0.35)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+        let pressed=configuration.isPressed
+        let lit=active || primary
+        let top=lit ? tapeB:Color(stageHex:"454F5B")
+        let bottom=lit ? tapeB.opacity(0.76):Color(stageHex:"20262E")
+        return configuration.label
+            .foregroundStyle(lit ? tapeInk:Color(stageHex:appearance.theme.text))
+            .background(LinearGradient(colors:pressed ? [bottom,top]:[top,bottom],startPoint:.top,endPoint:.bottom),in:surface)
+            .overlay(surface.stroke(LinearGradient(colors:[.white.opacity(pressed ? 0.12:0.4),.black.opacity(0.7)],startPoint:.top,endPoint:.bottom),lineWidth:1))
+            .overlay(surface.stroke(.white.opacity(lit ? 0.2:0.07),lineWidth:0.7).padding(2))
+            .shadow(color:.black.opacity(0.5),radius:pressed ? 0:1.5,x:0,y:pressed ? 0:2.5)
+            .contentShape(surface).opacity(enabled ? 1:0.35)
+            .offset(y:pressed ? 1.5:0).scaleEffect(pressed ? 0.98:1)
+            .animation(.easeOut(duration:0.08),value:pressed)
     }
 }
 
@@ -761,11 +765,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var viewerWindow:NSWindow!
     var quickEditWindow:NSWindow?
     var quickEditModel:QuickEditModel?
+    private var quickEditWindowModel:QuickEditModel?
     var pocketWindow: NSPanel!
     var appearanceUpdates: AnyCancellable?
     var lockUpdates: AnyCancellable?
     var statusUpdates: AnyCancellable?
     var lastStatusBadge: MenuBarBadge?
+    private var arrangingWorkspace=false
     var hotKey: EventHotKeyRef?
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.shared = self
@@ -780,6 +786,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         popover = NSPopover(); popover.behavior = .transient
         popover.contentViewController = NSHostingController(rootView: PlayerView(compact: true, menuBar: true))
         makeWindows()
+        if WorkspaceState.shared.mode == .single {workspaceModeChanged()}
         appearanceUpdates = AppearancePreferences.shared.objectWillChange.receive(on:RunLoop.main).sink { _ in Player.shared.objectWillChange.send() }
         statusUpdates = Player.shared.objectWillChange
             .throttle(for:.milliseconds(500),scheduler:RunLoop.main,latest:true)
@@ -875,14 +882,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     func showQuickEdit(_ track:Track) {
         guard !SetupLock.shared.editsBlocked,!ControlLock.shared.isLocked else {return}
-        if quickEditModel?.busy == true {if let window=quickEditWindow {restore(window)};return}
-        quickEditModel?.close();quickEditWindow?.orderOut(nil)
-        let model=QuickEditModel(track);quickEditModel=model
+        let model:QuickEditModel
+        if let existing=quickEditModel,existing.busy || existing.track.id == track.id {model=existing}
+        else {quickEditModel?.close();model=QuickEditModel(track);quickEditModel=model}
+        WorkspaceState.shared.editor=model
+        if WorkspaceState.shared.present(.editor) {return}
         let window=quickEditWindow ?? utilityWindow(title:"Hard Play Quick Edit",width:760,height:780)
-        window.contentMinSize=NSSize(width:620,height:650);window.contentView=NSHostingView(rootView:QuickEditView(edit:model).background(ThemedBackdrop()).preferredColorScheme(.dark).font(.stage(.body)))
+        window.contentMinSize=NSSize(width:620,height:650)
+        if quickEditWindowModel !== model {
+            window.contentView=NSHostingView(rootView:QuickEditView(edit:model).background(ThemedBackdrop()).preferredColorScheme(.dark).font(.stage(.body)))
+            quickEditWindowModel=model
+        }
         quickEditWindow=window;restore(window);NSApp.activate(ignoringOtherApps:true)
     }
     @objc func showWebViewer() {
+        if WorkspaceState.shared.present(.viewer) {return}
         guard !SetupLock.shared.settingsBlocked,!ControlLock.shared.isLocked else {return}
         if viewerWindow == nil {
             viewerWindow=utilityWindow(title:"Hard Play Web Viewer",width:420,height:720)
@@ -892,6 +906,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         restore(viewerWindow);NSApp.activate(ignoringOtherApps:true)
     }
     @objc func showBackupWindow() {
+        if WorkspaceState.shared.present(.backup) {return}
         guard !SetupLock.shared.settingsBlocked,!ControlLock.shared.isLocked else {return}
         if backupWindow == nil {
             backupWindow=utilityWindow(title:"Hard Play Timecode & Backup",width:500,height:690)
@@ -900,6 +915,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             backupWindow.center()
         }
         restore(backupWindow);NSApp.activate(ignoringOtherApps:true)
+    }
+    var workspaceWindows:[NSWindow] {
+        var windows=[quickEditWindow,themesWindow,mappingWindow,backupWindow,viewerWindow,settingsWindow].compactMap {$0}
+        if PlaylistWindowState.shared.detached,PlaylistWindowState.shared.edge == nil,let playlistWindow {windows.append(playlistWindow)}
+        return windows
+    }
+    private func workspaceSection(for window:NSWindow)->WorkspaceSection? {
+        if window === quickEditWindow {return .editor};if window === themesWindow {return .themes};if window === mappingWindow {return .mappings}
+        if window === backupWindow {return .backup};if window === viewerWindow {return .viewer};if window === settingsWindow {return .settings};return nil
+    }
+    func makeRoomForWorkspace() {
+        guard let window=mainWindow,let screen=window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame,!window.styleMask.contains(.fullScreen) else {return}
+        window.contentMinSize=NSSize(width:min(700,screen.width),height:min(650,max(420,screen.height-28)))
+        var frame=EmbeddedPlaylistLayout.fittedFrame(current:window.frame,visible:screen,height:max(window.frame.height,800))
+        frame.size.width=min(screen.width,max(700,frame.width));frame.origin.x=min(max(screen.minX,frame.minX),screen.maxX-frame.width)
+        window.setFrame(frame,display:true)
+    }
+    func workspaceModeChanged() {
+        let workspace=WorkspaceState.shared
+        if workspace.mode == .single {
+            let target=workspaceWindows.first(where:{$0.isKeyWindow}).flatMap(workspaceSection) ?? workspaceWindows.first(where:{$0.isVisible}).flatMap(workspaceSection)
+            workspace.editor=quickEditModel;workspace.section=target
+            quickEditModel?.hover(nil);quickEditModel?.stopPreview()
+            for window in workspaceWindows {window.orderOut(nil)}
+            if PlaylistWindowState.shared.detached {PlaylistWindowState.shared.attach(toMini:false)}
+            showMain();if target != nil {makeRoomForWorkspace()}
+        }else {
+            let target=workspace.section;workspace.section=nil
+            switch target {
+            case .settings:showSettingsWindow()
+            case .themes:showThemesWindow()
+            case .mappings:showMappings()
+            case .backup:showBackupWindow()
+            case .viewer:showWebViewer()
+            case .editor:if let track=quickEditModel?.track {showQuickEdit(track)}
+            case nil:break
+            }
+            arrangeWorkspaceWindows();WindowPresentation.shared.requestFit()
+        }
+    }
+    func arrangeWorkspaceWindows(preferred:NSWindow?=nil) {
+        guard !arrangingWorkspace,WorkspaceState.shared.mode == .nearby,let main=mainWindow,main.isVisible,!main.styleMask.contains(.fullScreen),let screen=main.screen?.visibleFrame ?? NSScreen.main?.visibleFrame else {return}
+        arrangingWorkspace=true;defer {arrangingWorkspace=false}
+        var windows=workspaceWindows.filter {$0.isVisible && !$0.isMiniaturized}
+        if let preferred,let i=windows.firstIndex(where:{$0 === preferred}) {windows.insert(windows.remove(at:i),at:0)}
+        let frames=WorkspaceLayout.frames(main:main.frame,screen:screen,sizes:windows.map { $0.frame.size })
+        for (window,frame) in zip(windows,frames) where window.frame != frame {window.setFrame(frame,display:true)}
     }
     func utilityWindow(title:String,width:CGFloat,height:CGFloat)->NSWindow {
         let window=NSWindow(contentRect:NSRect(x:200,y:100,width:width,height:height),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
@@ -910,11 +972,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return window
     }
     @objc func showSettingsWindow() {
+        if WorkspaceState.shared.present(.settings) {return}
         guard !ControlLock.shared.isLocked else { return }
         if !settingsWindow.isVisible { settingsWindow.setFrameOrigin(NSPoint(x:mainWindow.frame.maxX+12,y:mainWindow.frame.maxY-settingsWindow.frame.height)); settingsWindow.setFrame(settingsWindow.constrainFrameRect(settingsWindow.frame,to:mainWindow.screen),display:true) }
         restore(settingsWindow);NSApp.activate(ignoringOtherApps:true)
     }
     @objc func showThemesWindow() {
+        if WorkspaceState.shared.present(.themes) {return}
         guard !SetupLock.shared.settingsBlocked,!ControlLock.shared.isLocked else { return }
         if !themesWindow.isVisible { themesWindow.setFrameOrigin(NSPoint(x:settingsWindow.frame.maxX+12,y:settingsWindow.frame.maxY-themesWindow.frame.height)) }
         themesWindow.setFrame(themesWindow.constrainFrameRect(themesWindow.frame,to:mainWindow.screen),display:true)
@@ -945,10 +1009,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mainWindow.setFrame(frame,display:true,animate:true)
     }
     func fitMainContent(_ height:CGFloat) {
-        guard WindowPresentation.shared.autoFit,height>0,!ControlLock.shared.isLocked,
+        guard WindowPresentation.shared.autoFit,height>0,!ControlLock.shared.isLocked,WorkspaceState.shared.section == nil,
               let window=mainWindow,!window.styleMask.contains(.fullScreen),
               let screen=window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame else {return}
-        let content=height+20+(HintPreferences.shared.enabled ? 54:0)
+        let content=height+20+(HintPreferences.shared.enabled ? HintMetrics.totalHeight:0)
         let chrome=max(0,window.frame.height-window.contentLayoutRect.height)
         let targetHeight=content+chrome+4
         window.contentMinSize=NSSize(width:min(600,screen.width),height:min(420,screen.height-28))
@@ -965,18 +1029,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     @objc func showMain() { defer {WindowPresentation.shared.refresh()}; pocketWindow?.orderOut(nil); popover?.performClose(nil); ensureEmbeddedPlaylistRoom(); restore(mainWindow); NSApp.activate(ignoringOtherApps: true) }
     @objc func showMappings() {
+        if WorkspaceState.shared.present(.mappings) {return}
         guard !ControlLock.shared.isLocked else { return }
         restore(mappingWindow); NSApp.activate(ignoringOtherApps:true)
     }
     func windowWillClose(_ notification:Notification) {
         if let window = notification.object as? NSWindow {
-            if window === quickEditWindow {quickEditModel?.close()}
+            if window === quickEditWindow {quickEditWindowModel?.close()}
             if window === mappingWindow { ControlMappings.shared.mapping = false }
             if window === miniWindow || window === playlistWindow { DispatchQueue.main.async { PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() } }
         }
     }
     func showMini() { defer {WindowPresentation.shared.refresh()}; restore(miniWindow); ControlMappings.shared.refreshStates() }
-    func showPlaylistWindow() { restore(playlistWindow);PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() }
+    func showPlaylistWindow() { if WorkspaceState.shared.mode == .single {WorkspaceState.shared.toggle()}; restore(playlistWindow);PlaylistWindowState.shared.syncVisibility();ControlMappings.shared.refreshStates() }
     func toggleNano() {
         guard !ControlLock.shared.isLocked else {return}
         if pocketWindow.isVisible && !pocketWindow.isMiniaturized {pocketWindow.orderOut(nil)}else {showPocket()}
@@ -993,6 +1058,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func restore(_ window: NSWindow) {
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
+        if workspaceWindows.contains(where:{$0 === window}) {arrangeWorkspaceWindows(preferred:window)}
     }
     func minimize(_ window: NSWindow) {
         guard !ControlLock.shared.isLocked else { return }
@@ -1034,10 +1100,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         status.button?.setAccessibilityLabel("Hard Play — \(badge.title)")
     }
     func windowDidMove(_ notification:Notification) {
+        if notification.object as? NSWindow === mainWindow {arrangeWorkspaceWindows()}
         if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window);if window === pocketWindow { window.saveFrame(usingName:"HARDPLAY.pocket");updatePocketEdge() } else if window === miniWindow { window.saveFrame(usingName:"HARDPLAY.stage.minimal.mini") } }
     }
     func windowDidResize(_ notification:Notification) {
-        if notification.object as? NSWindow === mainWindow {WindowPresentation.shared.requestFit()}
+        if notification.object as? NSWindow === mainWindow {WindowPresentation.shared.requestFit();arrangeWorkspaceWindows()}
         if let window=notification.object as? NSWindow { PlaylistWindowState.shared.ownerMoved(window);if window === pocketWindow {window.saveFrame(usingName:"HARDPLAY.pocket");updatePocketEdge()} }
     }
     func windowWillResize(_ sender:NSWindow,to frameSize:NSSize)->NSSize {

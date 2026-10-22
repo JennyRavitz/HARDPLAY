@@ -105,6 +105,7 @@ struct ThemedBackdrop: View {
     }
 }
 struct ThemeEditorView: View {
+    var embedded=false
     @ObservedObject var appearance = AppearancePreferences.shared
     @ObservedObject var setup = SetupLock.shared
     @ObservedObject var lock = ControlLock.shared
@@ -135,7 +136,7 @@ struct ThemeEditorView: View {
                 Button("Reset to Tape Blue") { appearance.theme = .named("Tape Blue") }.buttonStyle(.bordered)
                 Text("Saved automatically on this Mac.").font(.stage(.caption)).foregroundStyle(.secondary)
             }.padding(22).disabled(setup.settingsBlocked || lock.isLocked)
-        }.frame(minWidth:360,minHeight:500).foregroundStyle(Color(stageHex:appearance.theme.text))
+        }.frame(minWidth:360,minHeight:embedded ? 300:500).foregroundStyle(Color(stageHex:appearance.theme.text))
     }
     private func adjustment(_ title:String,value:Binding<Double>,range:ClosedRange<Double>,suffix:String,factor:Double=1)->some View {
         VStack(spacing:5) { HStack { Text(title);Spacer();Text("\(Int(value.wrappedValue*factor))\(suffix)").monospacedDigit().foregroundStyle(.secondary) };Slider(value:value,in:range).tint(accent).accessibilityLabel(title) }

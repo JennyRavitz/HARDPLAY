@@ -44,14 +44,16 @@ final class QuickEditModel:ObservableObject {
     var range:ClipRange {ClipRange(start:start,end:end)}
     init(_ track:Track,mainIsPlaying:@escaping ()->Bool = {Player.shared.playing}){self.track=track;self.mainIsPlaying=mainIsPlaying}
     func prepare() async {
+        if duration>0 {startClock();return}
         do {
             let url=track.url;let info=try await Task.detached(priority:.utility) {try ClipExport.inspect(url)}.value
             duration=info.duration;sampleRate=info.sampleRate;viewport=TimelineViewport(duration:duration);end=duration;clipSelection=EditorClipSelection(clips:[EditorClip(range:.init(start:0,end:duration))]);updateText();message="\(Int(info.sampleRate)) Hz · \(info.channels) channels · WAV export"
             preview.replaceCurrentItem(with:AVPlayerItem(url:track.url));preview.volume=Float(previewVolume)
-            clock=Timer.publish(every:0.05,on:.main,in:.common).autoconnect().sink { [weak self] _ in self?.tickPreview() }
+            startClock()
 
         } catch {message="Cannot edit this file: "+error.localizedDescription}
     }
+    private func startClock(){guard clock == nil else {return};clock=Timer.publish(every:0.05,on:.main,in:.common).autoconnect().sink { [weak self] _ in self?.tickPreview() }}
     func updateText(){inText=ClipRange.preciseLabel(start);outText=ClipRange.preciseLabel(end)}
     func setStart(_ value:Double){guard value.isFinite,duration>0 else {return};start=min(max(0,value),max(0,end-1/sampleRate));updateText();stopPreview()}
     func setEnd(_ value:Double){guard value.isFinite,duration>0 else {return};end=max(min(duration,value),min(duration,start+1/sampleRate));updateText();stopPreview()}
@@ -146,6 +148,7 @@ final class QuickEditModel:ObservableObject {
 
 struct QuickEditView:View {
     @ObservedObject var edit:QuickEditModel
+    var embedded=false
     @ObservedObject private var player=Player.shared
     @ObservedObject private var lock=ControlLock.shared
     @ObservedObject private var setup=SetupLock.shared
@@ -198,11 +201,11 @@ struct QuickEditView:View {
                 Spacer()
             }.disabled(edit.busy || protected || !edit.hasSelection)
             Text("Original file preserved · WAV 32-bit float · original sample rate & channels").font(.stage(.caption2)).foregroundStyle(.secondary)
-        }.padding(22) }.frame(minWidth:620,minHeight:650).task {await edit.prepare()}
+        }.padding(22) }.frame(minWidth:620,minHeight:embedded ? 300:650).task {await edit.prepare()}
             .task(id:edit.viewportKey) {await edit.loadWaveform()}
             .onChange(of:lock.isLocked) {_,value in if value {edit.stopPreview()}}
             .onChange(of:setup.playbackBlocked) {_,value in if value {edit.stopPreview()}}
             .onChange(of:player.playing) {_,value in if value {edit.stopPreview()}}
-            .onDisappear {edit.close()}
+            .onDisappear {if embedded || WorkspaceState.shared.mode == .single {edit.hover(nil);edit.stopPreview()}else {edit.close()}}
     }
 }

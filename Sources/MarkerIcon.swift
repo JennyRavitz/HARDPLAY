@@ -32,6 +32,8 @@ struct MarkerIcon:View {
         func circle(_ x:Double,_ y:Double,_ r:Double) {line((0...16).map {i in let a=Double(i)*Double.pi/8,dr=(i%3 == 0 ? 0.15:0);return (x+cos(a)*(r+dr),y+sin(a)*(r-dr))})}
         func arrow(_ left:Bool=false) {line(left ? [(14,5),(7,12),(14,19)]:[(10,5),(17,12),(10,19)])}
         switch name {
+        case "workspace.single":box(2,4,20,16);line([(2,9),(22,9)]);line([(9,9),(9,20)])
+        case "workspace.nearby":box(2,5,10,15);box(15,3,7,8);box(15,14,7,7)
         case "window.fit":
             line([(3,3),(21,3)]);line([(3,21),(21,21)]);line([(12,5),(12,19)]);line([(8,9),(12,5),(16,9)]);line([(8,15),(12,19),(16,15)])
         case "player.mini":box(3,4,18,16);box(12,12,7,6)

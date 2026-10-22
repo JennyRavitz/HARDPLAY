@@ -19,6 +19,7 @@ extension View {
     func mapAction(_ action:String) -> some View { modifier(MappingTarget(action:.init(rawValue:action))) }
 }
 struct MappingView: View {
+    var embedded=false
     @ObservedObject var mappings = ControlMappings.shared
     @ObservedObject var player = Player.shared
     @ObservedObject var lock = ControlLock.shared
@@ -57,7 +58,7 @@ struct MappingView: View {
                 .font(.stage(size:11)).foregroundStyle(.secondary).lineLimit(3)
             Text("MIDI buttons: Note / CC. Master Volume: continuous CC fader. Single keys: inside HARDPLAY. Global shortcuts registered: \(mappings.globalCount). ⌥⌘ Space and standard ⌘ shortcuts stay reserved.")
                 .font(.stage(size:10)).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-        }.padding(18).frame(minWidth:500,minHeight:500).fixedControlHints()
+        }.padding(18).frame(minWidth:500,minHeight:embedded ? 300:500).fixedControlHints(enabled:!embedded)
             .preferredColorScheme(.dark).font(.stage(.body)).foregroundStyle(.white)
             .onChange(of:setup.settingsBlocked) { _, blocked in if blocked { mappings.mapping = false } }
             .disabled(lock.isLocked).overlay { if lock.isLocked { UnlockShield() } }

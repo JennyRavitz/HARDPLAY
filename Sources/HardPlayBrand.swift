@@ -25,8 +25,10 @@ struct HardPlayTransport: View {
             .font(.stage(size:size * 0.4,weight:.bold)).foregroundStyle(Color(stageHex:AppearancePreferences.shared.theme.text))
             .offset(x:playing ? 0:1)
             .frame(width:size,height:size)
-            .background(accent.opacity(0.22),in:Circle())
-            .overlay(Circle().stroke(accent.opacity(0.9),lineWidth:1))
+            .background(LinearGradient(colors:[Color(stageHex:"657586"),Color(stageHex:"2C3540")],startPoint:.topLeading,endPoint:.bottomTrailing),in:Circle())
+            .overlay(Circle().stroke(LinearGradient(colors:[accent.opacity(0.95),.black.opacity(0.8)],startPoint:.top,endPoint:.bottom),lineWidth:1.6))
+            .overlay(Circle().stroke(.white.opacity(0.1),lineWidth:0.8).padding(3))
+            .shadow(color:.black.opacity(0.5),radius:2,y:3)
             .accessibilityHidden(true)
     }
 }

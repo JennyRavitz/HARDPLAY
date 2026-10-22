@@ -29,6 +29,7 @@ struct StageHint: ViewModifier {
             .onDisappear {channel?.hide(owner:hover.id)}
     }
 }
+enum HintMetrics {static let height:CGFloat=76;static let totalHeight:CGFloat=86}
 private struct HintBar:View {
     @ObservedObject var channel:HintChannel
     @ObservedObject private var lock=ControlLock.shared
@@ -36,8 +37,8 @@ private struct HintBar:View {
         HStack(spacing:10) {
             Text("HINT").font(.stage(size:9,weight:.bold,design:.monospaced)).tracking(1).foregroundStyle(Color(red:0.65,green:0.82,blue:1))
             Text(lock.isLocked ? "Controls locked" : (channel.text ?? "Hover over a control to see its function."))
-                .font(.stage(size:11,weight:.medium)).foregroundStyle(.white.opacity(channel.text == nil ? 0.62:0.95)).lineLimit(2).frame(maxWidth:.infinity,alignment:.leading)
-        }.padding(.horizontal,12).frame(height:44)
+                .font(.stage(size:16.5,weight:.semibold)).foregroundStyle(.white.opacity(channel.text == nil ? 0.62:0.95)).lineLimit(3).frame(maxWidth:.infinity,alignment:.leading)
+        }.padding(.horizontal,12).frame(height:HintMetrics.height)
             .background(Color(red:0.035,green:0.07,blue:0.13).opacity(0.65),in:RoundedRectangle(cornerRadius:9))
             .overlay(RoundedRectangle(cornerRadius:9).stroke(.white.opacity(0.1),lineWidth:1))
             .padding(.horizontal,14).padding(.top,8).padding(.bottom,2)
@@ -45,16 +46,19 @@ private struct HintBar:View {
     }
 }
 private struct HintScope:ViewModifier {
+    var active=true
     @StateObject private var channel=HintChannel()
     @ObservedObject private var preferences=HintPreferences.shared
     @ObservedObject private var lock=ControlLock.shared
     func body(content:Content)->some View {
-        VStack(spacing:0) {if preferences.enabled {HintBar(channel:channel).transition(.move(edge:.top).combined(with:.opacity))};content.environment(\.stageHintChannel,channel)}
-            .onChange(of:preferences.enabled) {_,_ in channel.clear()}
+        Group {
+            if active {VStack(spacing:0) {if preferences.enabled {HintBar(channel:channel).transition(.move(edge:.top).combined(with:.opacity))};content.environment(\.stageHintChannel,channel)}}
+            else {content}
+        }.onChange(of:preferences.enabled) {_,_ in channel.clear()}
             .onChange(of:lock.isLocked) {_,_ in channel.clear()}
     }
 }
 extension View {
     func stageHint(_ text:String,below:Bool=false)->some View {modifier(StageHint(text:text))}
-    func fixedControlHints()->some View {modifier(HintScope())}
+    func fixedControlHints(enabled:Bool=true)->some View {modifier(HintScope(active:enabled))}
 }

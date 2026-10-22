@@ -31,6 +31,8 @@ The repository and Mac release downloads are public. The hosted web app currentl
 - Selecting a title only selects it. Use the row’s **▶** to play. Right-click → **Duplicate Track** creates an independent queue occurrence.
 - Inline rename, per-track transitions, global **ALL 0 / 3s / 6s**, auto-stop, restart/resume, volume, shuffle and repeat.
 - Save/open playlists; native `.hardplay` and web `.hardplay.json` store metadata, not audio. Web additionally supports individual play-time caps and total set timing.
+- **Workspace Mode** switches between nearby separate utility windows and one tabbed window containing Settings, Themes, MIDI/Keys, Backup, Viewer and Audio Edit. The tabbed workspace keeps transport controls visible. Nearby panels are arranged relative to the main window, using a cascade when the display has insufficient free space.
+- Raised hardware-style controls use beveled edges, lighting and press depth; the expandable hint strip uses larger lettering.
 - New **Speaker Grille** and **Road Case** themes add perforated metal, equipment controls and flight-case trim. The main wordmark is a metal shield badge; tape labels use cleaner edges.
 - Header buttons open **Mini**, **Nano** and **Full Screen**. **Auto Nano** chooses whether minimizing/closing opens the companion above ordinary desktop windows. **Auto Fit** follows content height and removes empty space. **?** expands/collapses the top hover-hint strip.
 - Menu bar attach/detach (native), setup protection and full control lock. Right-click a deck or queue row → **Edit Audio…**.

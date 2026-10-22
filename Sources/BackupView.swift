@@ -11,6 +11,7 @@ final class BackupViewState:ObservableObject {
     @Published var advancedIP=false
 }
 struct BackupView:View {
+    var embedded=false
     @ObservedObject private var link=BackupLink.shared
     @ObservedObject private var player=Player.shared
     @ObservedObject private var setup=SetupLock.shared
@@ -72,7 +73,7 @@ struct BackupView:View {
                 Text("Next stages: scheduled playback → LTC / MTC → armed hardware failover. Set verification does not arm or synchronize audio.").font(.stage(.caption)).foregroundStyle(.secondary)
                 Text("Network loss never stops your music or changes the audio source.").font(.stage(.caption)).foregroundStyle(.secondary)
             }.padding(20).disabled(blocked)
-        }.frame(minWidth:440,minHeight:540).onAppear {link.observe(player)}
+        }.frame(minWidth:440,minHeight:embedded ? 300:540).onAppear {link.observe(player)}
     }
     private func exportPackage() {
         guard !blocked,!player.playing,let manifest=link.local else {return}

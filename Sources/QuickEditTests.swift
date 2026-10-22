@@ -34,6 +34,7 @@ import AVFoundation
     precondition(envelope.count == 256 && envelope.max()!>0 && envelope.max()!<=1)
     var mainPlaying=false
     let audition=QuickEditModel(Track(url:source),mainIsPlaying:{mainPlaying});audition.previewVolume=0;await audition.prepare()
+    audition.setStart(0.1);let preservedRange=audition.range;await audition.prepare();precondition(audition.range == preservedRange)
     audition.hover(0.2);audition.tickPreview(option:true,focused:true,active:true);precondition(audition.auditioning)
     audition.tickPreview(option:false,focused:true,active:true);precondition(!audition.playing)
     audition.tickPreview(option:true,focused:false,active:true);precondition(!audition.playing)

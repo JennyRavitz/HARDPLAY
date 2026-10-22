@@ -150,7 +150,8 @@ struct StageDeck: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background((right ? tapeB : accent).opacity(0.065), in: RoundedRectangle(cornerRadius: appearance.theme.radius))
+        .background(LinearGradient(colors:[Color.black.opacity(0.24),Color.white.opacity(0.035)],startPoint:.top,endPoint:.bottom),in:RoundedRectangle(cornerRadius:appearance.theme.radius))
+        .overlay(RoundedRectangle(cornerRadius:appearance.theme.radius).stroke(.white.opacity(0.09),lineWidth:1))
         .contextMenu {
             if let track {
                 Button {AppDelegate.shared.showQuickEdit(track)} label: {MarkerLabel("Edit Audio…",systemImage:"scissors")}
@@ -252,18 +253,21 @@ struct PlayerView: View {
     @ObservedObject var hints = HintPreferences.shared
     @ObservedObject var placement = FloatingPlacement.shared
     @ObservedObject var windows = WindowPresentation.shared
+    @ObservedObject var workspace=WorkspaceState.shared
     var compact = false
     var settingsOnly = false
+    var embedded = false
     @ObservedObject var appearance = AppearancePreferences.shared
     var playlistOnly = false
     var menuBar = false
     @ViewBuilder var body: some View {
-        Group { if settingsOnly { settings } else if playlistOnly { detachedPlaylist } else { playerBody } }
+        Group { if settingsOnly { ScrollView {settings} } else if playlistOnly { detachedPlaylist } else { playerBody } }
             .audioFileDrop(enabled:!settingsOnly)
-            .fixedControlHints().font(.stage(.body))
+            .fixedControlHints(enabled:!embedded).font(.stage(.body))
     }
     @ViewBuilder private var playerBody: some View {
         if compact { stageBody(wide:false).frame(minWidth:380) }
+        else if workspace.mode == .single,let section=workspace.section {workspaceBody(section)}
         else {
             GeometryReader { geometry in
                 let wide=geometry.size.width >= 840
@@ -280,6 +284,30 @@ struct PlayerView: View {
             }
                 .frame(minWidth:600,minHeight:420)
         }
+    }
+    private func workspaceBody(_ section:WorkspaceSection)->some View {
+        VStack(spacing:10) {
+            header
+            ScrollView(.horizontal) {
+                HStack(spacing:6) {
+                    Button {workspace.player()} label:{MarkerLabel("Player",systemImage:"play.fill").font(.stage(size:11)).padding(7)}.buttonStyle(PlayerControlStyle())
+                    ForEach(WorkspaceSection.allCases) {tab in
+                        Button {workspace.present(tab)} label:{Text(tab.title).font(.stage(size:11)).padding(7)}
+                            .buttonStyle(PlayerControlStyle(active:section == tab)).accessibilityLabel("Workspace: "+tab.title)
+                    }
+                }
+            }.fixedSize(horizontal:false,vertical:true).disabled(lock.isLocked)
+            WorkspacePane(section:section).disabled(lock.isLocked)
+            HStack(spacing:10) {
+                Button {player.toggle()} label:{MarkerIcon(systemName:player.playing ? "pause.fill":"play.fill",size:20).frame(width:38,height:34)}
+                    .buttonStyle(PlayerControlStyle(primary:true)).accessibilityLabel(player.playing ? "Pause":"Play").disabled(setup.playbackBlocked || player.current == nil)
+                Text(player.current?.title ?? "No track").font(.stage(size:13)).lineLimit(1)
+                Spacer()
+                Text("\(timeLabel(player.elapsed)) / \(timeLabel(player.duration))").font(.stage(size:12)).monospacedDigit()
+                Button {workspace.player()} label:{MarkerIcon(systemName:"xmark").frame(width:30,height:30)}.buttonStyle(PlayerControlStyle()).accessibilityLabel("Return to Player")
+            }.disabled(lock.isLocked)
+        }.padding(16).frame(minWidth:660,minHeight:500).foregroundStyle(Color(stageHex:appearance.theme.text)).preferredColorScheme(.dark)
+            .overlay {if lock.isLocked {UnlockShield()}}
     }
     private func stageBody(wide:Bool) -> some View {
         VStack(spacing:appearance.theme.spacing) {
@@ -469,12 +497,15 @@ struct PlayerView: View {
             .disabled(lock.isLocked)
     }
     private var header: some View {
-        HStack(spacing:compact ? 4:6) {
+        HStack(spacing:3) {
             Group {
                 if compact {HardPlayWordmark()}else {HardPlayShieldWordmark().padding(.leading,8)}
             }.accessibilityElement(children:.ignore).accessibilityLabel("Hard Play")
             Spacer()
             if !compact {
+                Button {workspace.toggle()} label:{MarkerIcon(systemName:workspace.mode == .single ? "workspace.single":"workspace.nearby",size:18).frame(width:28,height:32)}
+                    .buttonStyle(PlayerControlStyle(active:workspace.mode == .single)).accessibilityLabel("Workspace Mode").accessibilityValue(workspace.title)
+                    .stageHint(workspace.mode == .single ? "Single Window · settings, themes and editor use tabs here. Click for nearby separate windows":"Nearby Windows · panels are arranged around the player and follow its position. Click for one window").disabled(lock.isLocked)
                 Button {windows.autoFit.toggle()} label: {MarkerIcon(systemName:"window.fit",size:18).frame(width:28,height:32)}
                     .buttonStyle(PlayerControlStyle(active:windows.autoFit)).accessibilityLabel("Auto Fit Window").accessibilityValue(windows.autoFit ? "On":"Off")
                     .stageHint(windows.autoFit ? "Auto Fit ON · window height follows the playlist; click for manual sizing":"Auto Fit OFF · click to remove empty space and follow playlist height").disabled(lock.isLocked)
@@ -546,6 +577,7 @@ struct PlayerView: View {
             Button { AppDelegate.shared.showMappings() } label: { MarkerLabel("Keyboard / MIDI…",systemImage:"pianokeys").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
             Button { AppDelegate.shared.showBackupWindow() } label: { MarkerLabel("Timecode & Backup…",systemImage:"network").font(.stage(size:12)).padding(8) }.buttonStyle(PlayerControlStyle())
             Button {AppDelegate.shared.showWebViewer()} label: {MarkerLabel("Web Viewer…",systemImage:"iphone").font(.stage(size:12)).padding(8)}.buttonStyle(PlayerControlStyle())
+            Button {workspace.toggle()} label:{MarkerLabel("Workspace: "+workspace.title,systemImage:workspace.mode == .single ? "workspace.single":"workspace.nearby").padding(7)}.buttonStyle(PlayerControlStyle())
             Toggle("Auto fit player height",isOn:$windows.autoFit)
             Toggle("Nano on minimize / close",isOn:$windows.nanoOnMinimize)
             Toggle("Show button hints",isOn:$hints.enabled)
