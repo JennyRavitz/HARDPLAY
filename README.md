@@ -6,7 +6,7 @@ Hard Play is a stage audio player for macOS, with an installable offline web edi
 
 ## Download and install on Mac
 
-Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.24.0). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
+Download the latest **DMG or ZIP** from [Releases](https://github.com/JennyRavitz/HARDPLAY/releases/tag/v0.24.1). Open the DMG and drag **HARDPLAY.app** into **Applications**, or unzip and move the app there. Launch it from Applications, Spotlight or the Dock. HARDPLAY also stays accessible in the menu bar after its windows close.
 
 - **macOS 14 Sonoma or newer.** Packaged builds are for **Apple Silicon (arm64)**. Intel Macs can build the source locally; these packages are not universal binaries.
 - This development release is **ad-hoc signed, not Apple notarized**. macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway after the first launch attempt. Do not disable Gatekeeper. A managed Mac may require its administrator.
@@ -25,7 +25,7 @@ The repository and Mac release downloads are public. The hosted web app currentl
 
 ## PATCH rear panel
 
-Hold the narrow right-hand strip beside the two audio displays for **three seconds** to slide PATCH out. Releasing early or dragging away cancels the hold. The corner **PATCH** button opens/closes the same panel immediately, including when controls are locked.
+Hold the narrow right-hand strip beside the two audio displays for **two seconds** to slide PATCH out. Releasing early or dragging away cancels the hold. The corner **PATCH** button opens/closes the same panel immediately, including when controls are locked.
 
 PATCH contains **Lock Controls**, the circular unlock ring, **Lock Setup**, Mini position lock, and **Open PATCH Settings**. The full PATCH settings panel still contains audio, themes, mappings, window preferences and quick buttons; **⌘,** opens it directly. Playback controls remain in the player. The toolbar now has two spaced rows so important buttons fit narrow windows.
 

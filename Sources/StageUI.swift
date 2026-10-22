@@ -535,7 +535,7 @@ struct PlayerView: View {
                 toolbarButton("Toggle Control Hints","questionmark",active:hints.enabled) {withAnimation(.easeInOut(duration:0.18)) {hints.enabled.toggle()}}
                 Button {withAnimation(.easeInOut(duration:0.22)) {ui.patchOpen.toggle()}} label:{MarkerLabel("PATCH",systemImage:lock.isLocked ? "lock.fill":"slider.horizontal.3").font(.stage(size:12,weight:.bold)).padding(.horizontal,10).frame(height:32)}
                     .buttonStyle(PlayerControlStyle(active:ui.patchOpen || lock.isLocked)).accessibilityLabel("PATCH Rear Panel").accessibilityValue(ui.patchOpen ? "Open":"Closed")
-                    .stageHint("PATCH · rear panel: settings and locks. Or hold the right edge beside the audio display for 3 seconds.")
+                    .stageHint("PATCH · rear panel: settings and locks. Or hold the right edge beside the audio display for 2 seconds.")
             }
             HStack(spacing:12) {
                 if !compact {

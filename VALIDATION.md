@@ -241,3 +241,8 @@ Build/self/queue/style, playlist lifecycle and playlist round-trip checks pass. 
 Native GUI verified New Playlist through Command-N, creating FOH Test Set, and Undo restoring the user's previous name/empty queue. The FOH, Stage Crew and Stagehand presets are present in Themes. FOH was applied and visually inspected in Main: marker mini hardplay button, spaced controls, touring case rim/corner hardware and quiet FOH/PLAYBACK labelling. FOH is left active; playback is stopped. Local screenshot build/HARDPLAY-0.24-foh.png is excluded from the public source export.
 
 No new raster artwork or animated backgrounds are added. The existing licensed Permanent Marker font is now bundled for the dedicated Mini label (74,632 uncompressed bytes); other UI text keeps Balsamiq for readability. The other two crew palettes have not received full physical-display inspection.
+
+
+## 0.24.1 two-second PATCH access
+
+The edge-hold duration is changed from 3 to 2 seconds; progress uses monotonic system uptime and the existing 20 ms timer. Early release and moving outside the strip retain cancellation behavior. Build/self/queue/style checks pass and DMG/ZIP checksums match. The running native app exposes the updated two-second accessibility hint. A physical timed-pointer check could not complete because the computer-use service returned noWindowsAvailable after the screenshot; exact physical-event timing is not claimed as measured.

@@ -19,7 +19,7 @@ struct PatchHoldEdge:NSViewRepresentable {
             cancel();started=ProcessInfo.processInfo.systemUptime;progress=0.01;needsDisplay=true
             let ticker=Timer(timeInterval:0.02,repeats:true) {[weak self] _ in
                 guard let self,let start=self.started else {return}
-                self.progress=min(1,(ProcessInfo.processInfo.systemUptime-start)/3);self.needsDisplay=true
+                self.progress=min(1,(ProcessInfo.processInfo.systemUptime-start)/2);self.needsDisplay=true
                 if self.progress>=1 {self.cancel();self.opened?()}
             };timer=ticker;RunLoop.main.add(ticker,forMode:.common)
         }
@@ -31,7 +31,7 @@ struct PatchHoldEdge:NSViewRepresentable {
     }
     func makeNSView(context:Context)->EdgeView {
         let view=EdgeView();view.opened=opened;view.setAccessibilityElement(true);view.setAccessibilityRole(.button)
-        view.setAccessibilityLabel("Hold Right Edge for PATCH");view.setAccessibilityHelp("Hold this strip for three seconds to open the rear panel. Release early to cancel.");return view
+        view.setAccessibilityLabel("Hold Right Edge for PATCH");view.setAccessibilityHelp("Hold this strip for two seconds to open the rear panel. Release early to cancel.");return view
     }
     func updateNSView(_ view:EdgeView,context:Context) {view.opened=opened}
     static func dismantleNSView(_ view:EdgeView,coordinator:()) {view.cancel()}
